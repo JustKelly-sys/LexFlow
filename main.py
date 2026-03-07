@@ -1,3 +1,13 @@
+"""
+LexFlow - Billing Intelligence Platform
+
+A FastAPI application that converts attorney voice notes into structured
+billing entries using Google Gemini AI. Designed for South African law firms
+with ZAR billing rates and FICA-compliant record keeping.
+
+Author: Tshepiso Jafta
+Version: 2.0
+"""
 import os
 import csv
 import json
