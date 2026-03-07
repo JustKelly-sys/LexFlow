@@ -291,6 +291,64 @@ DASHBOARD_HTML = """
         .empty-state .icon { font-size: 2.5rem; margin-bottom: 0.8rem; }
         .empty-state p { font-size: 0.9rem; line-height: 1.6; }
         .empty-state code { background: #f0ede6; padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.82rem; color: #8b1a2b; }
+
+        .upload-panel {
+            background: #ffffff;
+            border: 1px solid #d4cfc5;
+            border-radius: 4px;
+            padding: 1.6rem;
+            margin-bottom: 2rem;
+            border-left: 3px solid #8b1a2b;
+        }
+        .upload-title {
+            font-family: 'Libre Baskerville', Georgia, serif;
+            font-size: 1rem;
+            font-weight: 700;
+            color: #0c1a2e;
+            margin-bottom: 0.3rem;
+        }
+        .upload-desc {
+            font-size: 0.82rem;
+            color: #6b7280;
+            margin-bottom: 1rem;
+        }
+        .upload-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            flex-wrap: wrap;
+        }
+        .upload-or {
+            font-size: 0.8rem;
+            color: #9a9a9a;
+        }
+        .upload-label {
+            cursor: pointer;
+        }
+        .record-btn {
+            background: #8b1a2b;
+        }
+        .record-btn:hover {
+            background: #a82035;
+        }
+        .record-btn.recording {
+            background: #dc2626;
+            animation: recordPulse 1s ease-in-out infinite;
+        }
+        @keyframes recordPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .upload-status {
+            font-size: 0.82rem;
+            margin-top: 0.8rem;
+            color: #6b7280;
+        }
+        .upload-status.error { color: #dc2626; }
+        .upload-status.success { color: #2d6b3f; }
+        .upload-preview {
+            margin-top: 0.8rem;
+        }
         .footer {
             display: flex;
             justify-content: space-between;
@@ -337,6 +395,27 @@ DASHBOARD_HTML = """
             <div class="stat-card">
                 <div class="stat-label">Average per Entry</div>
                 <div class="stat-value" id="avgAmount">R0</div>
+            </div>
+        </div>
+
+        <div class="upload-panel">
+            <div class="upload-title">Submit Voice Note</div>
+            <div class="upload-desc">Record a voice note or upload an audio file describing your billable work.</div>
+            <div class="upload-actions">
+                <button class="btn record-btn" id="recordBtn" onclick="toggleRecording()">
+                    <span id="recordIcon">&#9679;</span> <span id="recordLabel">Record</span>
+                </button>
+                <span class="upload-or">or</span>
+                <label class="btn btn-outline upload-label" for="audioFile">Upload File</label>
+                <input type="file" id="audioFile" accept=".mp3,.wav,.m4a,.ogg,.webm,.flac,.aac" style="display:none" onchange="handleFileUpload(this)">
+            </div>
+            <div class="upload-status" id="uploadStatus"></div>
+            <div class="upload-preview" id="uploadPreview" style="display:none">
+                <audio id="audioPreview" controls style="width:100%;max-width:400px;margin:0.8rem 0"></audio>
+                <div>
+                    <button class="btn" onclick="submitRecording()">Submit for Billing</button>
+                    <button class="btn btn-outline" onclick="clearRecording()" style="margin-left:0.5rem">Clear</button>
+                </div>
             </div>
         </div>
         <div class="controls">
@@ -416,6 +495,115 @@ DASHBOARD_HTML = """
         function downloadCSV() { window.open('/billing/csv', '_blank'); }
         fetchBilling();
         refreshInterval = setInterval(fetchBilling, 10000);
+
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let recordedBlob = null;
+        let selectedFile = null;
+
+        function toggleRecording() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        }
+
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) audioChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    recordedBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    selectedFile = null;
+                    const url = URL.createObjectURL(recordedBlob);
+                    document.getElementById('audioPreview').src = url;
+                    document.getElementById('uploadPreview').style.display = 'block';
+                    setStatus('Recording complete. Review and submit.', '');
+                    stream.getTracks().forEach(t => t.stop());
+                };
+
+                mediaRecorder.start();
+                document.getElementById('recordBtn').classList.add('recording');
+                document.getElementById('recordLabel').textContent = 'Stop';
+                setStatus('Recording...', '');
+            } catch (err) {
+                setStatus('Microphone access denied. Please allow mic access or upload a file instead.', 'error');
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                document.getElementById('recordBtn').classList.remove('recording');
+                document.getElementById('recordLabel').textContent = 'Record';
+            }
+        }
+
+        function handleFileUpload(input) {
+            if (input.files && input.files[0]) {
+                selectedFile = input.files[0];
+                recordedBlob = null;
+                const url = URL.createObjectURL(selectedFile);
+                document.getElementById('audioPreview').src = url;
+                document.getElementById('uploadPreview').style.display = 'block';
+                setStatus('File loaded: ' + selectedFile.name, '');
+            }
+        }
+
+        function clearRecording() {
+            recordedBlob = null;
+            selectedFile = null;
+            document.getElementById('uploadPreview').style.display = 'none';
+            document.getElementById('audioFile').value = '';
+            setStatus('', '');
+        }
+
+        async function submitRecording() {
+            const file = selectedFile || recordedBlob;
+            if (!file) {
+                setStatus('No audio to submit.', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            const filename = selectedFile ? selectedFile.name : 'recording.webm';
+            formData.append('file', file, filename);
+
+            setStatus('Processing voice note...', '');
+
+            try {
+                const res = await fetch('/transcribe', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    setStatus('Error: ' + (err.detail || 'Processing failed'), 'error');
+                    return;
+                }
+
+                const data = await res.json();
+                setStatus('Billing entry created: ' + data.client_name + ' / ' + data.billable_amount, 'success');
+                clearRecording();
+                fetchBilling();
+            } catch (err) {
+                setStatus('Network error: ' + err.message, 'error');
+            }
+        }
+
+        function setStatus(msg, cls) {
+            const el = document.getElementById('uploadStatus');
+            el.textContent = msg;
+            el.className = 'upload-status' + (cls ? ' ' + cls : '');
+        }
     </script>
 </body>
 </html>
