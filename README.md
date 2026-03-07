@@ -1,6 +1,7 @@
 # LexFlow
 
 **Billing Intelligence Platform for Legal Professionals**
+?? **[Live Demo](https://lexflow-dwa0.onrender.com)**
 
 LexFlow is a voice-to-billing tool built for attorneys and law firms. Attorneys send a voice note describing their work, and LexFlow automatically transcribes it, extracts billing details, and generates structured billing entries ready for invoicing.
 
@@ -109,4 +110,5 @@ MIT
 ## Author
 
 **Tshepiso Jafta** — [LinkedIn](https://www.linkedin.com/in/tshepisojafta/)
+
 
