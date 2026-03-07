@@ -6,17 +6,37 @@ LexFlow is a voice-to-billing tool built for attorneys and law firms. Attorneys 
 
 ## How It Works
 
-1. **Record** - Attorney sends a voice note via the API describing the work they did
-2. **Transcribe** - Gemini AI processes the audio and extracts client name, matter description, duration, and calculates the billable amount
-3. **Bill** - A structured billing entry is saved and displayed on the live dashboard
+1. **Record** — Attorney sends a voice note via the API describing the work they did
+2. **Transcribe** — Gemini AI processes the audio and extracts client name, matter description, duration, and calculates the billable amount
+3. **Bill** — A structured billing entry is saved and displayed on the live dashboard
+
+## Development Journey
+
+This project went through several iterations before reaching its current form:
+
+### Phase 1: Core Transcription Engine
+Started with the fundamental problem: attorneys lose billable hours because manual time-tracking is tedious. Built a basic FastAPI endpoint that accepts audio files, sends them to the Gemini API for transcription, and extracts structured billing data using a custom prompt.
+
+### Phase 2: Structured Output & Data Persistence
+Replaced free-text parsing with Pydantic schema validation and Gemini's structured JSON output. Added CSV-based storage so billing entries persist between sessions and can be exported directly into accounting software.
+
+### Phase 3: Rate Limiting & Reliability
+Ran into Gemini API rate limits (429 errors) during testing with multiple voice notes. Implemented exponential backoff retry logic with configurable max retries and base delay, making the system production-ready.
+
+### Phase 4: Live Dashboard (v1)
+Built an embedded HTML dashboard served at the root URL. First version used a dark gradient tech aesthetic with neon accents. Functional but didn't match the professional tone of a legal billing tool.
+
+### Phase 5: LexFlow Rebrand & Professional UI
+Rebranded from "Voice-to-Bill" to "LexFlow". Completely redesigned the dashboard with a legal publishing aesthetic inspired by LexisNexis and Juta: serif typography (Libre Baskerville), navy/burgundy/gold palette, warm parchment backgrounds, and clean tabular data presentation. The result is a tool that looks like it belongs in a law firm.
 
 ## Features
 
 - Voice note transcription via Gemini AI
 - Automatic billable amount calculation (ZAR)
-- Live billing dashboard with real-time updates
+- Live billing dashboard with real-time auto-refresh
 - CSV export for integration with accounting software
 - Built-in retry logic for API rate limiting
+- Structured JSON output with Pydantic validation
 
 ## Tech Stack
 
@@ -27,7 +47,7 @@ LexFlow is a voice-to-billing tool built for attorneys and law firms. Attorneys 
 
 ## Getting Started
 
-`ash
+```bash
 # Clone the repo
 git clone https://github.com/JustKelly-sys/LexFlow.git
 cd LexFlow
@@ -45,7 +65,7 @@ pip install -r requirements.txt
 
 # Run the server
 python -m uvicorn main:app --host 0.0.0.0 --port 8000
-`
+```
 
 ## API Endpoints
 
@@ -56,14 +76,10 @@ python -m uvicorn main:app --host 0.0.0.0 --port 8000
 | GET | `/billing` | Get all billing entries as JSON |
 | GET | `/billing/csv` | Download billing data as CSV |
 
-## Screenshot
-
-The LexFlow dashboard provides a clean, professional view of all billing entries with summary statistics.
-
 ## License
 
 MIT
 
 ## Author
 
-**Tshepiso Jafta** - [LinkedIn](https://www.linkedin.com/in/tshepisojafta/)
+**Tshepiso Jafta** — [LinkedIn](https://www.linkedin.com/in/tshepisojafta/)
