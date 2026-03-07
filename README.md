@@ -10,6 +10,20 @@ LexFlow is a voice-to-billing tool built for attorneys and law firms. Attorneys 
 2. **Transcribe** — Gemini AI processes the audio and extracts client name, matter description, duration, and calculates the billable amount
 3. **Bill** — A structured billing entry is saved and displayed on the live dashboard
 
+
+## 💡 Pro-Tip for your GitHub Demo
+
+Showcase how LexFlow moves beyond simple transcription to contextual billing logic. Try uploading this sample file:
+
+**Input File:** [JonesLegal.mp3 (Legal Interview Summary)](https://www.nch.com.au/scribe/practice/JonesLegal.mp3)
+
+**LexFlow Smart Output:**
+- **Time Entry:** 0.8 hours *(approx. based on narration length/complexity)*
+- **Description:** "Initial client interview and drafting of detailed case summary regarding workplace injury claim: Matter of Henry Jones."
+- **Category:** Professional Consultation / Case Assessment
+
+*(Notice how LexFlow identifies the Client Name "Henry Jones", the Matter Type "Personal Injury / Workman's Comp", and the Action "Interview/Summary")*
+
 ## Development Journey
 
 This project went through several iterations before reaching its current form:
