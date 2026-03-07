@@ -76,6 +76,18 @@ python -m uvicorn main:app --host 0.0.0.0 --port 8000
 | GET | `/billing` | Get all billing entries as JSON |
 | GET | `/billing/csv` | Download billing data as CSV |
 
+## Deployment
+
+LexFlow is configured for one-click deployment on [Render](https://render.com):
+
+1. Fork this repo
+2. Connect your GitHub account to Render
+3. Create a new **Web Service** pointing to the repo
+4. Set the environment variable `GOOGLE_API_KEY` in the Render dashboard
+5. Deploy — Render will auto-detect `render.yaml` and handle the rest
+
+The free tier sleeps after 15 minutes of inactivity but wakes up automatically on the next request.
+
 ## License
 
 MIT
