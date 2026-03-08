@@ -42,29 +42,38 @@ export function AuthPage({ onAuth }: AuthPageProps) {
     setError("");
     const demoEmail = "demo@lexflow.app";
     const demoPw = "DemoLexFlow2026!";
+    
     // Try to sign in first (demo account may already exist)
     const { error: signInError } = await supabase.auth.signInWithPassword({ email: demoEmail, password: demoPw });
-    if (!signInError) {
-      onAuth();
-      return;
+    
+    if (signInError) {
+      // No account yet — create one + onboard
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email: demoEmail, password: demoPw });
+      if (signUpError) {
+        setError("Demo unavailable. Please sign up normally.");
+        setLoading(false);
+        return;
+      }
+      if (!signUpData.session) {
+        await supabase.auth.signInWithPassword({ email: demoEmail, password: demoPw });
+      }
+      // Onboard demo user
+      const { data: { session: s } } = await supabase.auth.getSession();
+      if (s) {
+        await fetch("/profile", {
+          method: "PATCH",
+          headers: { "Authorization": `Bearer ${s.access_token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ full_name: "Demo User", firm_name: "LexFlow Demo Firm", hourly_rate: 2500, onboarded: true }),
+        });
+      }
     }
-    // If no account, create one + onboard it
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email: demoEmail, password: demoPw });
-    if (signUpError) {
-      setError("Demo unavailable. Please sign up normally.");
-      setLoading(false);
-      return;
-    }
-    if (!signUpData.session) {
-      await supabase.auth.signInWithPassword({ email: demoEmail, password: demoPw });
-    }
-    // Onboard demo user
-    const { data: { session: s } } = await supabase.auth.getSession();
-    if (s) {
-      await fetch("/profile", {
-        method: "PATCH",
-        headers: { "Authorization": `Bearer ${s.access_token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ full_name: "Demo User", firm_name: "LexFlow Demo Firm", hourly_rate: 2500, onboarded: true }),
+
+    // ALWAYS seed fresh demo data (whether existing or new account)
+    const { data: { session: demoSession } } = await supabase.auth.getSession();
+    if (demoSession) {
+      await fetch("/demo/seed", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${demoSession.access_token}` },
       });
     }
     onAuth();

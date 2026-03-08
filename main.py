@@ -225,6 +225,87 @@ async def save_billing_entry(request: Request, user: dict = Depends(get_current_
         return JSONResponse(content={"status": "saved"})
 
 
+
+DEMO_EMAIL = "demo@lexflow.app"
+
+DEMO_ENTRIES = [
+    {
+        "client_name": "Ndlovu Holdings (Pty) Ltd",
+        "matter_description": "Reviewed and advised on commercial lease agreement for new Sandton office premises. Identified non-standard escalation clauses and recommended amendments.",
+        "duration": "2 hours",
+        "billable_amount": "R5000",
+    },
+    {
+        "client_name": "John Mokoena",
+        "matter_description": "Consultation regarding unfair dismissal claim under the LRA. Drafted referral to CCMA and prepared initial statement of case.",
+        "duration": "1.5 hours",
+        "billable_amount": "R3750",
+    },
+    {
+        "client_name": "Vukani Construction",
+        "matter_description": "Reviewed BBBEE compliance documentation and shareholding structure. Provided written opinion on fronting risk under the Codes of Good Practice.",
+        "duration": "3 hours",
+        "billable_amount": "R7500",
+    },
+    {
+        "client_name": "Sarah van der Merwe",
+        "matter_description": "Drafted antenuptial contract with accrual system. Discussed implications of matrimonial property regime and estate planning considerations.",
+        "duration": "1 hour",
+        "billable_amount": "R2500",
+    },
+    {
+        "client_name": "TechBridge Solutions",
+        "matter_description": "Negotiated and finalized SLA terms for cloud infrastructure agreement. Reviewed data protection clauses for POPIA compliance.",
+        "duration": "2.5 hours",
+        "billable_amount": "R6250",
+    },
+]
+
+
+@app.post("/demo/seed")
+async def seed_demo_data(user: dict = Depends(get_current_user)):
+    """Reset and seed demo account with sample billing data."""
+    # Verify this is the demo user
+    async with httpx.AsyncClient(timeout=15.0) as client_http:
+        # Get user email from Supabase auth
+        auth_res = await client_http.get(
+            supabase_auth("user"),
+            headers={"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {user['token']}"}
+        )
+        if auth_res.status_code != 200:
+            raise HTTPException(status_code=403, detail="Could not verify user")
+        
+        user_email = auth_res.json().get("email", "")
+        if user_email != DEMO_EMAIL:
+            raise HTTPException(status_code=403, detail="Demo seed is only available for demo accounts")
+
+        # Delete existing billing entries for demo user (use service key to bypass RLS)
+        del_headers = {
+            "apikey": SUPABASE_SERVICE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal",
+        }
+        del_res = await client_http.delete(
+            supabase_rest(f"billing_entries?user_id=eq.{user['id']}"),
+            headers=del_headers,
+        )
+        print(f"[DEMO SEED] Deleted old entries: {del_res.status_code}")
+        
+        # Insert fresh demo data
+        for entry in DEMO_ENTRIES:
+            await client_http.post(
+                supabase_rest("billing_entries"),
+                headers=supabase_headers(user["token"]),
+                json={
+                    "user_id": user["id"],
+                    **entry,
+                }
+            )
+
+        return JSONResponse(content={"status": "demo_seeded", "entries": len(DEMO_ENTRIES)})
+
+
 @app.get("/billing")
 async def get_billing(user: dict = Depends(get_current_user)):
     """Return billing entries for the authenticated user."""
