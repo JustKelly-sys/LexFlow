@@ -270,10 +270,8 @@ async def save_billing_entry(request: Request, user: dict = Depends(get_current_
     if missing:
         raise HTTPException(400, f"Missing fields: {missing}")
 
-    # Build the row — include original AI output if provided (audit trail)
+    # Build the row (original_ai_output is kept client-side until the DB column is added)
     row = {"user_id": user["id"], **{k: body[k] for k in required}}
-    if "original_ai_output" in body:
-        row["original_ai_output"] = json.dumps(body["original_ai_output"])
 
     async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
         res = await client.post(
