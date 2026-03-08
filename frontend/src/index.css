@@ -99,3 +99,30 @@
   background-repeat: repeat;
   background-size: 100% 100%;
 }
+
+/* Sonner Toast Overrides */
+[data-sonner-toaster] [data-sonner-toast] {
+  --normal-bg: theme(colors.background);
+  --normal-border: theme(colors.primary / 0.1);
+  --normal-text: theme(colors.primary);
+  font-family: var(--font-headline), system-ui, sans-serif;
+}
+
+[data-sonner-toaster] [data-sonner-toast] [data-icon] svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.5;
+}
+
+[data-sonner-toaster] [data-sonner-toast] [data-close-button] {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: transparent;
+  border: none;
+  opacity: 0.4;
+}
+
+[data-sonner-toaster] [data-sonner-toast] [data-close-button]:hover {
+  opacity: 1;
+}

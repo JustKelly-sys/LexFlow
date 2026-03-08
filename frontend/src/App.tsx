@@ -5,7 +5,15 @@ import { AudioUploader } from '@/components/lexflow/AudioUploader';
 import { ExecutiveMetrics } from '@/components/lexflow/ExecutiveMetrics';
 import { BillingLedger, BillingEntry } from '@/components/lexflow/BillingLedger';
 import { AuthPage } from '@/components/lexflow/AuthPage';
+import { Toaster, toast } from 'sonner';
 import type { Session } from '@supabase/supabase-js';
+
+interface PendingReview {
+  client_name: string;
+  matter_description: string;
+  duration: string;
+  billable_amount: string;
+}
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -14,6 +22,7 @@ export default function App() {
   const [entries, setEntries] = useState<BillingEntry[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
+  const [pendingReview, setPendingReview] = useState<PendingReview | null>(null);
 
   // Auth state listener
   useEffect(() => {
@@ -50,7 +59,6 @@ export default function App() {
         const data = await res.json();
         setProfile(data);
       } else if (res.status === 401) {
-        // Stale or invalid session - sign out
         await supabase.auth.signOut();
         setSession(null);
         setProfile(null);
@@ -95,6 +103,7 @@ export default function App() {
     if (!session) return;
     setIsProcessing(true);
     setStatusMsg('Processing your voice note...');
+    toast.info('Uploading audio for extraction...');
 
     const formData = new FormData();
     formData.append('file', file, file.name);
@@ -107,22 +116,60 @@ export default function App() {
       });
       if (!res.ok) {
         const err = await res.json();
-        setStatusMsg('Error: ' + (err.detail || 'Processing failed'));
+        const msg = err.detail || 'Processing failed';
+        if (msg.includes('429') || msg.includes('rate limit')) {
+          toast.error('AI provider is experiencing high traffic. Please try again in a moment.');
+        } else {
+          toast.error(msg);
+        }
+        setStatusMsg('');
       } else {
         const data = await res.json();
-        setStatusMsg('Billed: ' + data.client_name + ' / ' + data.billable_amount);
-        fetchBilling();
+        toast.success('Extraction complete — please review below.');
+        setPendingReview(data);
+        setStatusMsg('');
       }
     } catch (err) {
-      setStatusMsg('Network error occurred.');
+      toast.error('Network error. Please check your connection.');
+      setStatusMsg('');
     } finally {
       setIsProcessing(false);
     }
   };
 
+  const handleApproveEntry = async () => {
+    if (!session || !pendingReview) return;
+    toast.loading('Saving to ledger...');
+
+    try {
+      const res = await fetch('/billing', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify(pendingReview),
+      });
+      if (res.ok) {
+        toast.dismiss();
+        toast.success('Entry saved to billing ledger.');
+        setPendingReview(null);
+        fetchBilling();
+      } else {
+        const err = await res.json();
+        toast.dismiss();
+        toast.error('Failed to save: ' + (err.detail || 'Unknown error'));
+      }
+    } catch (e) {
+      toast.dismiss();
+      toast.error('Network error while saving.');
+    }
+  };
+
+  const handleDiscardEntry = () => {
+    setPendingReview(null);
+    toast.info('Entry discarded.');
+  };
+
   const handleExport = () => {
     if (!session) return;
-    // Open CSV download with auth
     const url = `/billing/csv`;
     fetch(url, { headers: authHeaders() })
       .then(res => res.blob())
@@ -131,6 +178,7 @@ export default function App() {
         a.href = URL.createObjectURL(blob);
         a.download = 'billing.csv';
         a.click();
+        toast.success('CSV exported.');
       });
   };
 
@@ -152,12 +200,31 @@ export default function App() {
     );
   }
 
-  // Not logged in - show auth page
   if (!session) {
-    return <AuthPage onAuth={() => { fetchProfile(); fetchBilling(); }} />;
+    return (
+      <>
+        <Toaster
+          position="top-right"
+          closeButton
+          toastOptions={{
+            unstyled: true,
+            classNames: {
+              toast: 'flex items-start gap-3 p-4 bg-white/95 backdrop-blur-xl border border-primary/10 shadow-lg w-[360px] font-sans',
+              title: 'text-sm font-medium text-primary tracking-tight',
+              description: 'text-xs text-muted-foreground font-light',
+              closeButton: 'text-muted-foreground hover:text-primary transition-colors',
+              success: 'border-l-2 border-l-emerald-500',
+              error: 'border-l-2 border-l-red-500',
+              info: 'border-l-2 border-l-accent',
+              loading: 'border-l-2 border-l-amber-400',
+            },
+          }}
+        />
+        <AuthPage onAuth={() => { fetchProfile(); fetchBilling(); }} />
+      </>
+    );
   }
 
-  // Profile not loaded yet - loading state
   if (profile === null) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -166,13 +233,51 @@ export default function App() {
     );
   }
 
-  // Profile exists but not onboarded - show onboarding
   if (!profile.onboarded) {
-    return <AuthPage onAuth={() => { fetchProfile(); fetchBilling(); }} />;
+    return (
+      <>
+        <Toaster
+          position="top-right"
+          closeButton
+          toastOptions={{
+            unstyled: true,
+            classNames: {
+              toast: 'flex items-start gap-3 p-4 bg-white/95 backdrop-blur-xl border border-primary/10 shadow-lg w-[360px] font-sans',
+              title: 'text-sm font-medium text-primary tracking-tight',
+              description: 'text-xs text-muted-foreground font-light',
+              closeButton: 'text-muted-foreground hover:text-primary transition-colors',
+              success: 'border-l-2 border-l-emerald-500',
+              error: 'border-l-2 border-l-red-500',
+              info: 'border-l-2 border-l-accent',
+              loading: 'border-l-2 border-l-amber-400',
+            },
+          }}
+        />
+        <AuthPage onAuth={() => { fetchProfile(); fetchBilling(); }} />
+      </>
+    );
   }
 
   return (
     <main className="relative min-h-screen pt-24 px-8 md:px-16 lg:px-24 overflow-x-hidden">
+      <Toaster
+          position="top-right"
+          closeButton
+          toastOptions={{
+            unstyled: true,
+            classNames: {
+              toast: 'flex items-start gap-3 p-4 bg-white/95 backdrop-blur-xl border border-primary/10 shadow-lg w-[360px] font-sans',
+              title: 'text-sm font-medium text-primary tracking-tight',
+              description: 'text-xs text-muted-foreground font-light',
+              closeButton: 'text-muted-foreground hover:text-primary transition-colors',
+              success: 'border-l-2 border-l-emerald-500',
+              error: 'border-l-2 border-l-red-500',
+              info: 'border-l-2 border-l-accent',
+              loading: 'border-l-2 border-l-amber-400',
+            },
+          }}
+        />
+
       <div className="fixed inset-0 -z-10 pointer-events-none overflow-hidden bg-background">
         <div className="absolute inset-0 topo-pattern opacity-60" />
         <div className="absolute bottom-0 left-0 right-0 h-[40vh] bg-gradient-to-t from-background via-background/60 to-transparent" />
@@ -182,6 +287,78 @@ export default function App() {
 
       <div className="max-w-7xl mx-auto space-y-24 animate-in fade-in slide-in-from-bottom-4 duration-1000 relative z-10">
         <AudioUploader onUpload={handleUpload} isProcessing={isProcessing} statusMsg={statusMsg} />
+
+        {/* HITL Review Form */}
+        {pendingReview && (
+          <div className="max-w-3xl mx-auto fluted-glass p-8 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-headline text-2xl font-light tracking-tight text-primary">Review AI Extraction</h2>
+                <p className="text-muted-foreground text-sm mt-1">Verify and edit before saving to your ledger</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                <span className="text-xs text-muted-foreground uppercase tracking-widest">Pending Review</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Client Name</label>
+                <input
+                  type="text"
+                  value={pendingReview.client_name}
+                  onChange={(e) => setPendingReview({ ...pendingReview, client_name: e.target.value })}
+                  className="w-full px-4 py-3 bg-white/50 border border-primary/10 text-primary font-light focus:outline-none focus:border-primary/30 transition-colors"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Duration</label>
+                <input
+                  type="text"
+                  value={pendingReview.duration}
+                  onChange={(e) => setPendingReview({ ...pendingReview, duration: e.target.value })}
+                  className="w-full px-4 py-3 bg-white/50 border border-primary/10 text-primary font-light focus:outline-none focus:border-primary/30 transition-colors"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Matter Description</label>
+              <textarea
+                value={pendingReview.matter_description}
+                onChange={(e) => setPendingReview({ ...pendingReview, matter_description: e.target.value })}
+                rows={3}
+                className="w-full px-4 py-3 bg-white/50 border border-primary/10 text-primary font-light focus:outline-none focus:border-primary/30 transition-colors resize-none"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Billable Amount (ZAR)</label>
+              <input
+                type="text"
+                value={pendingReview.billable_amount}
+                onChange={(e) => setPendingReview({ ...pendingReview, billable_amount: e.target.value })}
+                className="w-full px-4 py-3 bg-white/50 border border-primary/10 text-primary font-light focus:outline-none focus:border-primary/30 transition-colors"
+              />
+            </div>
+
+            <div className="flex items-center gap-4 pt-4 border-t border-primary/5">
+              <button
+                onClick={handleApproveEntry}
+                className="flex-1 px-8 py-4 bg-primary text-white font-headline text-lg tracking-tight hover:bg-primary/90 transition-all"
+              >
+                Approve & Save to Ledger
+              </button>
+              <button
+                onClick={handleDiscardEntry}
+                className="px-8 py-4 border border-primary/20 text-primary font-headline text-lg tracking-tight hover:bg-primary/5 transition-all"
+              >
+                Discard
+              </button>
+            </div>
+          </div>
+        )}
 
         <ExecutiveMetrics totalHours={totalHours} totalRevenue={totalRevenue} />
 

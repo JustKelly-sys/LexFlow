@@ -4,7 +4,7 @@
 
 **[Live Demo](https://lexflow-dwa0.onrender.com)**
 
-LexFlow is a voice-to-billing intelligence platform built for South African attorneys and law firms. Dictate or upload a voice note, and LexFlow autonomously transcribes it with Gemini AI, extracts structured billing entities, calculates the billable amount at your custom hourly rate, and generates FICA-compliant ledger entries — all scoped to your authenticated profile.
+LexFlow is a voice-to-billing intelligence platform built for South African attorneys and law firms. Dictate or upload a voice note, and LexFlow transcribes it with Gemini, extracts structured billing entities, and presents an editable review form for human verification before committing to your personal ledger — all scoped to your authenticated profile with Row Level Security.
 
 ---
 
@@ -12,24 +12,40 @@ LexFlow is a voice-to-billing intelligence platform built for South African atto
 
 1. **Sign Up** — Create an account with your email and set your custom hourly rate (ZAR)
 2. **Dictate or Upload** — Record a voice note in-browser or drag-and-drop an audio file
-3. **AI Extraction** — Gemini AI transcribes the audio, identifies client, matter, duration, and calculates your billable amount
-4. **Ledger Entry** — A structured billing record is saved to your personal ledger with Row Level Security
+3. **Review & Approve** — The extracted billing data appears in an editable form for human verification before saving
+4. **Ledger Entry** — Approved records are saved to your personal billing ledger with full FICA compliance
+
+> **Recruiters:** Click **"Try Demo"** on the login page — no signup required.
 
 ---
 
 ## Features
 
-- **User Authentication** — Email + password auth via Supabase with session management
-- **Onboarding Flow** — First-time setup with name, firm, and custom hourly rate
-- **Custom Billing Rates** — Each user's hourly rate is dynamically passed to the AI prompt
-- **Row Level Security** — Users only see their own billing data
+### Core
 - **Voice Dictation** — Record directly from the browser with one click
 - **Drag-and-Drop Upload** — Supports MP3, WAV, M4A, WebM, FLAC, AAC, OGG
-- **Gemini AI Transcription** — Structured entity extraction with Pydantic validation
-- **Executive Dashboard** — Real-time metrics for total hours billed and ZAR revenue
+- **Gemini Transcription** — Structured entity extraction with Pydantic validation
+- **Custom Billing Rates** — Each user's hourly rate is dynamically applied
+
+### Human-in-the-Loop (HITL)
+- **Editable Review Form** — Verify and correct client name, duration, matter, and amount before saving
+- **Approve or Discard** — Nothing saves to the database until the user explicitly approves
+
+### Authentication & Security
+- **Supabase Auth** — Email + password with session management
+- **Row Level Security** — Users only see their own billing data
+- **POPIA Compliance** — Audio files are scrubbed from Gemini immediately after extraction
+
+### Dashboard
+- **Executive Metrics** — Real-time total hours billed and ZAR revenue
 - **Billing Ledger** — Full history with client, matter, duration, and amount columns
-- **FICA-Compliant CSV Export** — One-click download for accounting software integration
-- **Retry Logic** — Exponential backoff on API rate limits for production reliability
+- **FICA-Compliant CSV Export** — One-click download for accounting software
+- **Toast Notifications** — Clean, contextual feedback for all actions
+
+### Portfolio Features
+- **One-Click Demo** — Pre-configured demo account for instant access
+- **Onboarding Flow** — First-time setup with name, firm, and custom hourly rate
+- **Retry Logic** — Exponential backoff on API rate limits
 
 ---
 
@@ -37,10 +53,10 @@ LexFlow is a voice-to-billing intelligence platform built for South African atto
 
 | Layer | Technology |
 |-------|-----------|
-| **Frontend** | React 19, Vite, TypeScript, Tailwind CSS v4, Shadcn UI |
+| **Frontend** | React 19, Vite, TypeScript, Tailwind CSS v4, Shadcn UI, Sonner |
 | **Backend** | Python, FastAPI, Uvicorn, httpx |
 | **AI** | Google Gemini API (gemini-2.0-flash) |
-| **Database** | Supabase (PostgreSQL with Row Level Security) |
+| **Database** | Supabase (PostgreSQL + Row Level Security) |
 | **Auth** | Supabase Auth (email + password) |
 | **Deployment** | Render (auto-deploy from GitHub) |
 
@@ -50,15 +66,15 @@ LexFlow is a voice-to-billing intelligence platform built for South African atto
 
 ```
 LexFlow/
-  main.py                # FastAPI backend + Gemini AI + Supabase REST
+  main.py                # FastAPI backend + Gemini + Supabase REST
   requirements.txt       # Python dependencies
   render.yaml            # Render deployment config
   frontend/
     src/
-      App.tsx             # Main app shell with auth state management
+      App.tsx             # Auth state + HITL review form + dashboard
       components/
-        lexflow/          # Feature components
-          AuthPage.tsx    # Login / signup / onboarding
+        lexflow/
+          AuthPage.tsx    # Login / signup / onboarding / demo
           Navbar.tsx      # User info + logout
           AudioUploader.tsx
           ExecutiveMetrics.tsx
@@ -66,91 +82,74 @@ LexFlow/
         ui/               # Shadcn UI primitives
       lib/
         supabaseClient.ts # Supabase browser client
-        utils.ts          # Tailwind class merge utility
+        utils.ts          # Tailwind class merge
         formatters.ts     # ZAR currency & duration formatting
-    vite.config.ts        # Vite + Tailwind CSS v4 config
-    tailwind.config.js    # Design tokens & theme
 ```
 
-The FastAPI backend communicates with Supabase via httpx REST calls. Auth tokens from the frontend are forwarded to Supabase for Row Level Security enforcement. API endpoints are registered before the SPA catch-all route.
+**Data Flow:** Browser → FastAPI → Gemini (extract) → User Review (HITL) → Supabase (save) → Dashboard
 
 ---
 
 ## Getting Started
 
 ```bash
-# Clone the repo
 git clone https://github.com/JustKelly-sys/LexFlow.git
 cd LexFlow
 
-# Backend setup
+# Backend
 python -m venv venv
-venv\Scripts\activate   # Windows
+venv\Scripts\activate
 pip install -r requirements.txt
 
-# Frontend setup
-cd frontend
-npm install
-npm run build
-cd ..
+# Frontend
+cd frontend && npm install && npm run build && cd ..
 
-# Environment variables (.env file)
+# Environment (.env)
 GOOGLE_API_KEY=your_gemini_api_key
 SUPABASE_URL=your_supabase_project_url
 SUPABASE_SERVICE_KEY=your_supabase_service_role_key
 
-# Run the server
+# Run
 python -m uvicorn main:app --host 0.0.0.0 --port 8000
 ```
-
-Open `http://localhost:8000` to sign up and access the dashboard.
 
 ---
 
 ## API Endpoints
 
-All endpoints except the frontend require a valid `Authorization: Bearer <token>` header.
+All endpoints except the frontend require `Authorization: Bearer <token>`.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/` | React SPA (login / dashboard) |
-| POST | `/transcribe` | Upload voice note for AI billing extraction |
+| POST | `/transcribe` | Extract billing data from audio (returns JSON for review) |
+| POST | `/billing` | Save a user-approved billing entry (HITL) |
 | GET | `/billing` | Get authenticated user's billing entries |
 | GET | `/billing/csv` | Download billing data as CSV |
-| GET | `/profile` | Get authenticated user's profile |
+| GET | `/profile` | Get user profile |
 | PATCH | `/profile` | Update profile (name, firm, rate) |
 
 ---
 
-## Deployment
+## Design Decisions
 
-LexFlow is configured for one-click deployment on [Render](https://render.com):
-
-1. Fork this repo
-2. Connect your GitHub account to Render
-3. Create a new **Web Service** pointing to the repo
-4. Set environment variables in the Render dashboard:
-   - `GOOGLE_API_KEY`
-   - `SUPABASE_URL`
-   - `SUPABASE_SERVICE_KEY`
-   - `NODE_VERSION=20`
-5. Deploy — Render reads `render.yaml` and builds both frontend and backend automatically
+| Decision | Rationale |
+|----------|-----------|
+| **FastAPI over Django** | Async-first — handles Gemini API latency without blocking |
+| **Supabase over Firebase** | Postgres + Row Level Security + built-in auth REST API |
+| **httpx over supabase-py** | Avoids C-extension build failures on Windows/Render |
+| **HITL over auto-save** | Legal billing demands accuracy — AI extraction is a draft, not a fact |
+| **Sonner over default alerts** | Unstyled mode allows matching the existing design system |
 
 ---
 
 ## Development Journey
 
-**Phase 1: Core Transcription Engine** — FastAPI endpoint accepting audio files, Gemini transcription, and structured billing extraction.
-
-**Phase 2: Structured Output** — Pydantic schema validation with Gemini's JSON output. CSV-based storage for billing records.
-
-**Phase 3: Reliability** — Exponential backoff retry logic for Gemini API rate limits.
-
-**Phase 4: Professional Dashboard** — Full React SPA with Shadcn UI, fluted-glass effects, and a premium legal-tech aesthetic.
-
-**Phase 5: Firebase Studio UI** — Designed the "Voice Intelligence Simplified" interface in Firebase Studio, then migrated to local Vite/React.
-
-**Phase 6: Supabase Integration** — Migrated from CSV to Supabase Postgres. Added user authentication, per-user billing profiles with custom hourly rates, and Row Level Security.
+1. **Core Engine** — FastAPI + Gemini transcription + Pydantic schema
+2. **Structured Output** — JSON extraction with retry logic
+3. **Professional Dashboard** — React SPA with Shadcn UI
+4. **Supabase Integration** — Auth, profiles, custom rates, RLS
+5. **Human-in-the-Loop** — Editable review form, toast notifications, POPIA compliance, demo mode
 
 ---
 

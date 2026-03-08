@@ -152,6 +152,7 @@ async def transcribe_audio(file: UploadFile = File(...), user: dict = Depends(ge
 
     gemini_client = genai.Client(api_key=API_KEY)
     tmp_path = None
+    uploaded_file = None
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
             shutil.copyfileobj(file.file, tmp)
@@ -180,22 +181,7 @@ async def transcribe_audio(file: UploadFile = File(...), user: dict = Depends(ge
         entry_data = entry.model_dump()
         print(f"[GEMINI RESULT] hourly_rate={hourly_rate}, raw={entry_data}")
 
-        # Save to Supabase
-        async with httpx.AsyncClient(timeout=15.0) as client_http:
-            insert_res = await client_http.post(
-                supabase_rest("billing_entries"),
-                headers=supabase_headers(user["token"]),
-                json={
-                    "user_id": user["id"],
-                    "client_name": entry_data["client_name"],
-                    "matter_description": entry_data["matter_description"],
-                    "duration": entry_data["duration"],
-                    "billable_amount": entry_data["billable_amount"],
-                }
-            )
-            if insert_res.status_code not in (200, 201):
-                print(f"Supabase insert error: {insert_res.text}")
-
+        # HITL: Return extraction for user review — do NOT auto-save
         return JSONResponse(content=entry_data)
 
     except HTTPException:
@@ -203,8 +189,40 @@ async def transcribe_audio(file: UploadFile = File(...), user: dict = Depends(ge
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
+        # POPIA/GDPR Compliance: scrub temp files and Gemini uploads immediately
         if tmp_path and os.path.exists(tmp_path):
             os.remove(tmp_path)
+        try:
+            if uploaded_file:
+                gemini_client.files.delete(name=uploaded_file.name)
+                print(f"[POPIA] Deleted Gemini upload: {uploaded_file.name}")
+        except Exception:
+            pass  # Best-effort cleanup
+
+
+@app.post("/billing")
+async def save_billing_entry(request: Request, user: dict = Depends(get_current_user)):
+    """Save a user-approved billing entry (Human-in-the-Loop)."""
+    body = await request.json()
+    required = {"client_name", "matter_description", "duration", "billable_amount"}
+    if not required.issubset(body.keys()):
+        raise HTTPException(status_code=400, detail=f"Missing fields: {required - set(body.keys())}")
+
+    async with httpx.AsyncClient(timeout=15.0) as client_http:
+        insert_res = await client_http.post(
+            supabase_rest("billing_entries"),
+            headers=supabase_headers(user["token"]),
+            json={
+                "user_id": user["id"],
+                "client_name": body["client_name"],
+                "matter_description": body["matter_description"],
+                "duration": body["duration"],
+                "billable_amount": body["billable_amount"],
+            }
+        )
+        if insert_res.status_code not in (200, 201):
+            raise HTTPException(status_code=500, detail=f"Failed to save: {insert_res.text}")
+        return JSONResponse(content={"status": "saved"})
 
 
 @app.get("/billing")

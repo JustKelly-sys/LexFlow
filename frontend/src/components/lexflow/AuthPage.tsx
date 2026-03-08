@@ -37,6 +37,39 @@ export function AuthPage({ onAuth }: AuthPageProps) {
     }
   };
 
+  const handleDemo = async () => {
+    setLoading(true);
+    setError("");
+    const demoEmail = "demo@lexflow.app";
+    const demoPw = "DemoLexFlow2026!";
+    // Try to sign in first (demo account may already exist)
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email: demoEmail, password: demoPw });
+    if (!signInError) {
+      onAuth();
+      return;
+    }
+    // If no account, create one + onboard it
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email: demoEmail, password: demoPw });
+    if (signUpError) {
+      setError("Demo unavailable. Please sign up normally.");
+      setLoading(false);
+      return;
+    }
+    if (!signUpData.session) {
+      await supabase.auth.signInWithPassword({ email: demoEmail, password: demoPw });
+    }
+    // Onboard demo user
+    const { data: { session: s } } = await supabase.auth.getSession();
+    if (s) {
+      await fetch("/profile", {
+        method: "PATCH",
+        headers: { "Authorization": `Bearer ${s.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ full_name: "Demo User", firm_name: "LexFlow Demo Firm", hourly_rate: 2500, onboarded: true }),
+      });
+    }
+    onAuth();
+  };
+
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -244,12 +277,28 @@ export function AuthPage({ onAuth }: AuthPageProps) {
           )}
 
           {mode !== "onboarding" && (
-            <div className="text-center">
+            <div className="space-y-4">
+              <div className="text-center">
+                <button
+                  onClick={() => { setMode(mode === "login" ? "signup" : "login"); setError(""); }}
+                  className="text-xs text-muted-foreground hover:text-primary transition-colors font-medium"
+                >
+                  {mode === "login" ? "No account? Create one" : "Already have an account? Sign in"}
+                </button>
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-primary/10" /></div>
+                <div className="relative flex justify-center"><span className="bg-background px-3 text-[10px] text-muted-foreground uppercase tracking-widest">or</span></div>
+              </div>
+
               <button
-                onClick={() => { setMode(mode === "login" ? "signup" : "login"); setError(""); }}
-                className="text-xs text-muted-foreground hover:text-primary transition-colors font-medium"
+                type="button"
+                onClick={handleDemo}
+                disabled={loading}
+                className="w-full py-3 border border-accent/30 text-primary font-headline tracking-tight hover:bg-accent/5 transition-all text-sm"
               >
-                {mode === "login" ? "No account? Create one" : "Already have an account? Sign in"}
+                {loading ? "Loading Demo..." : "Try Demo — No Sign Up Required"}
               </button>
             </div>
           )}
