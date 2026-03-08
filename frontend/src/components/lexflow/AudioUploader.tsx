@@ -1,14 +1,15 @@
 import { useState, useCallback, useRef } from "react";
-import { Mic, Upload, Loader2, StopCircle } from "lucide-react";
+import { Mic, Upload, StopCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AudioUploaderProps {
   onUpload: (file: File) => Promise<void>;
   isProcessing: boolean;
   statusMsg?: string;
+  pipelineStage?: 'idle' | 'uploading' | 'transcribing' | 'extracting' | 'done';
 }
 
-export function AudioUploader({ onUpload, isProcessing, statusMsg }: AudioUploaderProps) {
+export function AudioUploader({ onUpload, isProcessing, statusMsg, pipelineStage = "idle" }: AudioUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -72,12 +73,54 @@ export function AudioUploader({ onUpload, isProcessing, statusMsg }: AudioUpload
         )}
       >
         {isProcessing ? (
-          <div className="flex flex-col items-center gap-6 animate-in fade-in zoom-in duration-500">
-            <Loader2 className="w-16 h-16 text-accent animate-spin" strokeWidth={1} />
-            <p className="font-headline text-2xl font-light tracking-tight text-primary">
-              {statusMsg || "Processing your voice note..."}
+          <div className="flex flex-col items-center gap-8 animate-in fade-in zoom-in duration-500">
+            <div className="w-full max-w-sm space-y-4">
+              {/* Step 1: Upload */}
+              <div className="flex items-center gap-3">
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                  pipelineStage === 'uploading' ? 'bg-amber-400 text-white pipeline-active' :
+                  ['transcribing','extracting','done'].includes(pipelineStage) ? 'bg-emerald-500 text-white pipeline-check' :
+                  'bg-primary/10 text-muted-foreground'
+                }`}>
+                  {['transcribing','extracting','done'].includes(pipelineStage) ? '\u2713' : '1'}
+                </div>
+                <span className={`text-sm font-headline tracking-tight ${
+                  pipelineStage === 'uploading' ? 'text-primary font-medium' : 'text-muted-foreground'
+                }`}>Audio received</span>
+              </div>
+
+              {/* Step 2: Transcribe */}
+              <div className="flex items-center gap-3">
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                  pipelineStage === 'transcribing' ? 'bg-amber-400 text-white pipeline-active' :
+                  ['extracting','done'].includes(pipelineStage) ? 'bg-emerald-500 text-white pipeline-check' :
+                  'bg-primary/10 text-muted-foreground'
+                }`}>
+                  {['extracting','done'].includes(pipelineStage) ? '\u2713' : '2'}
+                </div>
+                <span className={`text-sm font-headline tracking-tight ${
+                  pipelineStage === 'transcribing' ? 'text-primary font-medium' : 'text-muted-foreground'
+                }`}>Transcribing with Gemini...</span>
+              </div>
+
+              {/* Step 3: Extract */}
+              <div className="flex items-center gap-3">
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                  pipelineStage === 'extracting' ? 'bg-amber-400 text-white pipeline-active' :
+                  pipelineStage === 'done' ? 'bg-emerald-500 text-white pipeline-check' :
+                  'bg-primary/10 text-muted-foreground'
+                }`}>
+                  {pipelineStage === 'done' ? '\u2713' : '3'}
+                </div>
+                <span className={`text-sm font-headline tracking-tight ${
+                  pipelineStage === 'extracting' ? 'text-primary font-medium' : 'text-muted-foreground'
+                }`}>Extracting billing entities</span>
+              </div>
+            </div>
+
+            <p className="text-muted-foreground text-xs uppercase tracking-[0.2em]">
+              {statusMsg || "Processing..."}
             </p>
-            <p className="text-muted-foreground text-sm uppercase tracking-widest">This may take a moment</p>
           </div>
         ) : isRecording ? (
           <div className="flex flex-col items-center gap-8 z-10">
@@ -119,7 +162,7 @@ export function AudioUploader({ onUpload, isProcessing, statusMsg }: AudioUpload
                   Start Dictation
                 </button>
 
-                <span className="text-muted-foreground/40 text-sm font-light">or</span>
+
 
                 <label className="group relative cursor-pointer">
                   <input type="file" className="hidden" accept="audio/*" onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />

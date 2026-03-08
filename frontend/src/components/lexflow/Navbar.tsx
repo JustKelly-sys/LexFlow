@@ -1,17 +1,27 @@
-import { User, ShieldCheck, Search, LogOut } from "lucide-react";
+import { ShieldCheck, LogOut } from "lucide-react";
 
 interface NavbarProps {
   userName?: string;
   firmName?: string;
   onLogout?: () => void;
+  aiStatus?: 'ready' | 'processing' | 'error';
 }
 
-export function Navbar({ userName, firmName, onLogout }: NavbarProps) {
+const STATUS_COLORS = {
+  ready: 'bg-emerald-400',
+  processing: 'bg-amber-400 animate-pulse',
+  error: 'bg-red-400',
+};
+
+export function Navbar({ userName, firmName, onLogout, aiStatus = 'ready' }: NavbarProps) {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 py-6 pointer-events-none">
       <div className="flex items-center gap-2 pointer-events-auto cursor-pointer">
         <span className="font-headline text-2xl font-bold tracking-tighter uppercase text-primary">LexFlow</span>
-        <div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+        <div
+          className={`w-1.5 h-1.5 rounded-full transition-colors duration-500 ${STATUS_COLORS[aiStatus]}`}
+          title={aiStatus === 'ready' ? 'AI Ready' : aiStatus === 'processing' ? 'Processing...' : 'Connection Error'}
+        />
       </div>
 
       <div className="flex items-center gap-6 pointer-events-auto">

@@ -52,7 +52,7 @@ export function BillingLedger({ entries, onExport }: BillingLedgerProps) {
             </TableRow>
           ) : (
             entries.map((entry) => (
-              <TableRow key={entry.id} className="group border-b border-primary/[0.03] transition-colors hover:bg-primary/[0.01]">
+              <TableRow key={entry.id} className="group border-b border-primary/[0.03] transition-colors hover:bg-zinc-50">
                 <TableCell className="font-light text-muted-foreground py-8">
                   {new Date(entry.timestamp).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' })}
                 </TableCell>
@@ -61,10 +61,10 @@ export function BillingLedger({ entries, onExport }: BillingLedgerProps) {
                   {entry.clientName}
                 </TableCell>
                 <TableCell className="font-light text-primary/70 italic">{entry.matterDescription}</TableCell>
-                <TableCell className="text-right font-light text-primary/70">{formatDuration(entry.duration)}</TableCell>
+                <TableCell className="text-right font-light text-primary/70 tabular-nums">{formatDuration(entry.duration)}</TableCell>
                 <TableCell className="text-right relative">
                    <div className="fluted-glass absolute inset-y-2 right-0 w-24 opacity-0 group-hover:opacity-20 pointer-events-none transition-opacity" />
-                  <span className="font-headline text-lg tracking-tight font-medium text-primary">
+                  <span className="font-headline text-lg tracking-tight font-medium text-primary tabular-nums">
                     {formatZAR(entry.amount)}
                   </span>
                 </TableCell>

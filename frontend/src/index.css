@@ -126,3 +126,34 @@
 [data-sonner-toaster] [data-sonner-toast] [data-close-button]:hover {
   opacity: 1;
 }
+
+/* Tabular numbers for financial data — digits align vertically in columns */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Hide scrollbar but keep scrolling (review form textarea) */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Processing pipeline animation */
+@keyframes pipeline-check {
+  0% { transform: scale(0.5); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.pipeline-check {
+  animation: pipeline-check 0.3s ease-out forwards;
+}
+
+@keyframes pipeline-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.pipeline-active {
+  animation: pipeline-pulse 1.5s ease-in-out infinite;
+}

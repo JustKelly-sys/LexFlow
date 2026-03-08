@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Navbar } from '@/components/lexflow/Navbar';
 import { AudioUploader } from '@/components/lexflow/AudioUploader';
@@ -38,9 +38,11 @@ export default function App() {
   const [profileLoading, setProfileLoading] = useState(false);
   const [entries, setEntries] = useState<BillingEntry[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [pipelineStage, setPipelineStage] = useState<'idle' | 'uploading' | 'transcribing' | 'extracting' | 'done'>('idle');
   const [statusMsg, setStatusMsg] = useState('');
   const [pendingReviews, setPendingReviews] = useState<PendingReview[]>([]);
   const [confidence, setConfidence] = useState<number | null>(null);
+  const reviewRef = useRef<HTMLDivElement>(null);
 
   // Build auth headers from an EXPLICIT session (avoids stale closure)
   const buildHeaders = useCallback((s: Session) => ({
@@ -138,18 +140,24 @@ export default function App() {
   const handleUpload = async (file: File) => {
     if (!session) return;
     setIsProcessing(true);
-    setStatusMsg('Processing your voice note...');
-    toast.info('Uploading audio for extraction...');
+    setPipelineStage('uploading');
+    setStatusMsg('Uploading audio...');
 
     const formData = new FormData();
     formData.append('file', file, file.name);
 
     try {
+      setPipelineStage('transcribing');
+      setStatusMsg('Transcribing with Gemini...');
+
       const res = await fetch('/transcribe', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${session.access_token}` },
         body: formData,
       });
+      setPipelineStage('extracting');
+      setStatusMsg('Extracting billing entities...');
+
       if (!res.ok) {
         const err = await res.json();
         const msg = err.detail || 'Processing failed';
@@ -177,12 +185,17 @@ export default function App() {
           original_ai_output: { ...e },  // snapshot before human edits
         })));
         setConfidence(confidence ?? null);
+        setPipelineStage('done');
+        // Auto-scroll to review form after extraction
+        setTimeout(() => reviewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
       }
     } catch {
       toast.error('Network error. Please check your connection.');
     } finally {
       setIsProcessing(false);
       setStatusMsg('');
+      // Reset pipeline after a beat so the "done" state is visible
+      setTimeout(() => setPipelineStage('idle'), 1500);
     }
   };
 
@@ -205,7 +218,10 @@ export default function App() {
         fetchBilling(session);
       } else {
         const err = await res.json();
-        toast.error('Failed to save: ' + (err.detail || 'Unknown error'));
+        const msg = err.detail || 'Unknown error';
+        // Never show raw DB errors to the user
+        const safeMsg = msg.includes('PGRST') || msg.includes('schema') ? 'Unable to save entry. Please try again.' : msg;
+        toast.error(safeMsg);
       }
     } catch {
       toast.dismiss();
@@ -323,14 +339,14 @@ export default function App() {
         <div className="absolute bottom-0 left-0 right-0 h-[40vh] bg-gradient-to-t from-background via-background/60 to-transparent" />
       </div>
 
-      <Navbar userName={profile?.full_name} firmName={profile?.firm_name} onLogout={handleLogout} />
+      <Navbar userName={profile?.full_name} firmName={profile?.firm_name} onLogout={handleLogout} aiStatus={pipelineStage === "idle" || pipelineStage === "done" ? "ready" : "processing"} />
 
-      <div className="max-w-7xl mx-auto space-y-24 animate-in fade-in slide-in-from-bottom-4 duration-1000 relative z-10">
-        <AudioUploader onUpload={handleUpload} isProcessing={isProcessing} statusMsg={statusMsg} />
+      <div className="max-w-7xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-1000 relative z-10">
+        <AudioUploader onUpload={handleUpload} isProcessing={isProcessing} statusMsg={statusMsg} pipelineStage={pipelineStage} />
 
         {/* Multi-matter HITL review cards with confidence */}
         {pendingReviews.length > 0 && (
-          <div className="max-w-3xl mx-auto space-y-6">
+          <div ref={reviewRef} className="max-w-3xl mx-auto space-y-6">
             {/* Header with confidence badge */}
             <div className="fluted-glass p-6 flex items-center justify-between">
               <div>
@@ -390,14 +406,14 @@ export default function App() {
                   <textarea value={review.matter_description}
                     onChange={(e) => handleUpdateReview(idx, 'matter_description', e.target.value)}
                     rows={3}
-                    className="w-full px-4 py-3 bg-white/50 border border-primary/10 text-primary font-light focus:outline-none focus:border-primary/30 transition-colors resize-none" />
+                    className="w-full px-4 py-3 bg-white/50 border border-primary/10 text-primary font-light focus:outline-none focus:border-primary/30 transition-colors resize-none scrollbar-hide max-h-32 overflow-y-auto" />
                 </div>
 
                 <div className="space-y-2">
                   <label className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Billable Amount (ZAR)</label>
                   <input type="text" value={review.billable_amount}
                     onChange={(e) => handleUpdateReview(idx, 'billable_amount', e.target.value)}
-                    className="w-full px-4 py-3 bg-white/50 border border-primary/10 text-primary font-light focus:outline-none focus:border-primary/30 transition-colors" />
+                    className="w-full px-5 py-4 bg-white/50 border border-primary/10 text-primary text-2xl font-headline font-medium tabular-nums focus:outline-none focus:border-primary/30 transition-colors" />
                 </div>
 
                 <div className="flex items-center gap-4 pt-4 border-t border-primary/5">
@@ -406,7 +422,7 @@ export default function App() {
                     Approve & Save
                   </button>
                   <button onClick={() => handleDiscardEntry(idx)}
-                    className="px-8 py-4 border border-primary/20 text-primary font-headline text-lg tracking-tight hover:bg-primary/5 transition-all">
+                    className="px-6 py-4 text-muted-foreground text-sm font-headline tracking-tight hover:text-destructive transition-colors">
                     Discard
                   </button>
                 </div>
@@ -415,7 +431,7 @@ export default function App() {
           </div>
         )}
 
-        <ExecutiveMetrics totalHours={totalHours} totalRevenue={totalRevenue} />
+        <ExecutiveMetrics totalHours={totalHours} totalRevenue={totalRevenue} entryCount={entries.length} />
         <BillingLedger entries={entries} onExport={handleExport} />
       </div>
 
