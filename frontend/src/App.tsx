@@ -13,6 +13,7 @@ interface PendingReview {
   matter_description: string;
   duration: string;
   billable_amount: string;
+  original_ai_output?: Record<string, string>;  // audit trail: what the AI originally extracted
 }
 
 // Single Toaster config — no more copy-pasting
@@ -38,7 +39,8 @@ export default function App() {
   const [entries, setEntries] = useState<BillingEntry[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
-  const [pendingReview, setPendingReview] = useState<PendingReview | null>(null);
+  const [pendingReviews, setPendingReviews] = useState<PendingReview[]>([]);
+  const [confidence, setConfidence] = useState<number | null>(null);
 
   // Build auth headers from an EXPLICIT session (avoids stale closure)
   const buildHeaders = useCallback((s: Session) => ({
@@ -158,8 +160,23 @@ export default function App() {
         }
       } else {
         const data = await res.json();
-        toast.success('Extraction complete — please review below.');
-        setPendingReview(data);
+        // Multi-matter: data.entries is an array, data.confidence is 0-1
+        const entries = data.entries || [data];
+        const confidence = data.confidence;
+
+        // Show confidence in toast
+        const pct = confidence != null ? Math.round(confidence * 100) : null;
+        const confLabel = pct != null
+          ? pct >= 80 ? `High confidence (${pct}%)` : `Review carefully — confidence ${pct}%`
+          : '';
+        toast.success(`Extraction complete — ${entries.length} ${entries.length === 1 ? 'entry' : 'entries'} found. ${confLabel}`);
+
+        // Queue all entries for review, each tagged with its original AI output for audit
+        setPendingReviews(entries.map((e: any) => ({
+          ...e,
+          original_ai_output: { ...e },  // snapshot before human edits
+        })));
+        setConfidence(confidence ?? null);
       }
     } catch {
       toast.error('Network error. Please check your connection.');
@@ -169,19 +186,22 @@ export default function App() {
     }
   };
 
-  const handleApproveEntry = async () => {
-    if (!session || !pendingReview) return;
+  const handleApproveEntry = async (index: number) => {
+    if (!session || !pendingReviews[index]) return;
+    const entry = pendingReviews[index];
     toast.loading('Saving to ledger...');
     try {
       const res = await fetch('/billing', {
         method: 'POST',
         headers: buildHeaders(session),
-        body: JSON.stringify(pendingReview),
+        body: JSON.stringify(entry),
       });
       toast.dismiss();
       if (res.ok) {
-        toast.success('Entry saved to billing ledger.');
-        setPendingReview(null);
+        const remaining = pendingReviews.filter((_, i) => i !== index);
+        setPendingReviews(remaining);
+        if (remaining.length === 0) setConfidence(null);
+        toast.success(`Entry saved. ${remaining.length} remaining.`);
         fetchBilling(session);
       } else {
         const err = await res.json();
@@ -193,9 +213,38 @@ export default function App() {
     }
   };
 
-  const handleDiscardEntry = () => {
-    setPendingReview(null);
+  const handleApproveAll = async () => {
+    if (!session || pendingReviews.length === 0) return;
+    toast.loading(`Saving ${pendingReviews.length} entries...`);
+    let saved = 0;
+    for (const entry of pendingReviews) {
+      try {
+        const res = await fetch('/billing', {
+          method: 'POST',
+          headers: buildHeaders(session),
+          body: JSON.stringify(entry),
+        });
+        if (res.ok) saved++;
+      } catch { /* continue saving others */ }
+    }
+    toast.dismiss();
+    toast.success(`${saved} of ${pendingReviews.length} entries saved.`);
+    setPendingReviews([]);
+    setConfidence(null);
+    fetchBilling(session);
+  };
+
+  const handleDiscardEntry = (index: number) => {
+    const remaining = pendingReviews.filter((_, i) => i !== index);
+    setPendingReviews(remaining);
+    if (remaining.length === 0) setConfidence(null);
     toast.info('Entry discarded.');
+  };
+
+  const handleUpdateReview = (index: number, field: keyof PendingReview, value: string) => {
+    setPendingReviews(prev => prev.map((e, i) =>
+      i === index ? { ...e, [field]: value } : e
+    ));
   };
 
   const handleExport = () => {
@@ -220,7 +269,8 @@ export default function App() {
     setSession(null);
     setProfile(null);
     setEntries([]);
-    setPendingReview(null);
+    setPendingReviews([]);
+    setConfidence(null);
   };
 
   const totalHours = entries.reduce((a, c) => a + c.duration, 0);
@@ -278,59 +328,90 @@ export default function App() {
       <div className="max-w-7xl mx-auto space-y-24 animate-in fade-in slide-in-from-bottom-4 duration-1000 relative z-10">
         <AudioUploader onUpload={handleUpload} isProcessing={isProcessing} statusMsg={statusMsg} />
 
-        {pendingReview && (
-          <div className="max-w-3xl mx-auto fluted-glass p-8 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex items-center justify-between">
+        {/* Multi-matter HITL review cards with confidence */}
+        {pendingReviews.length > 0 && (
+          <div className="max-w-3xl mx-auto space-y-6">
+            {/* Header with confidence badge */}
+            <div className="fluted-glass p-6 flex items-center justify-between">
               <div>
-                <h2 className="font-headline text-2xl font-light tracking-tight text-primary">Review Extraction</h2>
+                <h2 className="font-headline text-2xl font-light tracking-tight text-primary">
+                  Review Extraction{pendingReviews.length > 1 ? `s (${pendingReviews.length})` : ''}
+                </h2>
                 <p className="text-muted-foreground text-sm mt-1">Verify and edit before saving to your ledger</p>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                <span className="text-xs text-muted-foreground uppercase tracking-widest">Pending Review</span>
+              <div className="flex items-center gap-4">
+                {confidence != null && (
+                  <div className={`px-3 py-1.5 text-xs font-medium uppercase tracking-widest border ${
+                    confidence >= 0.8 ? 'border-emerald-300 text-emerald-700 bg-emerald-50' :
+                    confidence >= 0.5 ? 'border-amber-300 text-amber-700 bg-amber-50' :
+                    'border-red-300 text-red-700 bg-red-50'
+                  }`}>
+                    {Math.round(confidence * 100)}% Confidence
+                  </div>
+                )}
+                {pendingReviews.length > 1 && (
+                  <button onClick={handleApproveAll}
+                    className="px-4 py-2 bg-primary text-white text-xs font-headline uppercase tracking-widest hover:bg-primary/90 transition-all">
+                    Approve All
+                  </button>
+                )}
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Client Name</label>
-                <input type="text" value={pendingReview.client_name}
-                  onChange={(e) => setPendingReview({ ...pendingReview, client_name: e.target.value })}
-                  className="w-full px-4 py-3 bg-white/50 border border-primary/10 text-primary font-light focus:outline-none focus:border-primary/30 transition-colors" />
+            {/* Individual review cards */}
+            {pendingReviews.map((review, idx) => (
+              <div key={idx} className="fluted-glass p-8 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                {pendingReviews.length > 1 && (
+                  <div className="flex items-center gap-2 pb-2 border-b border-primary/5">
+                    <span className="text-xs text-muted-foreground uppercase tracking-widest font-medium">
+                      Entry {idx + 1} of {pendingReviews.length}
+                    </span>
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Client Name</label>
+                    <input type="text" value={review.client_name}
+                      onChange={(e) => handleUpdateReview(idx, 'client_name', e.target.value)}
+                      className="w-full px-4 py-3 bg-white/50 border border-primary/10 text-primary font-light focus:outline-none focus:border-primary/30 transition-colors" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Duration</label>
+                    <input type="text" value={review.duration}
+                      onChange={(e) => handleUpdateReview(idx, 'duration', e.target.value)}
+                      className="w-full px-4 py-3 bg-white/50 border border-primary/10 text-primary font-light focus:outline-none focus:border-primary/30 transition-colors" />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Matter Description</label>
+                  <textarea value={review.matter_description}
+                    onChange={(e) => handleUpdateReview(idx, 'matter_description', e.target.value)}
+                    rows={3}
+                    className="w-full px-4 py-3 bg-white/50 border border-primary/10 text-primary font-light focus:outline-none focus:border-primary/30 transition-colors resize-none" />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Billable Amount (ZAR)</label>
+                  <input type="text" value={review.billable_amount}
+                    onChange={(e) => handleUpdateReview(idx, 'billable_amount', e.target.value)}
+                    className="w-full px-4 py-3 bg-white/50 border border-primary/10 text-primary font-light focus:outline-none focus:border-primary/30 transition-colors" />
+                </div>
+
+                <div className="flex items-center gap-4 pt-4 border-t border-primary/5">
+                  <button onClick={() => handleApproveEntry(idx)}
+                    className="flex-1 px-8 py-4 bg-primary text-white font-headline text-lg tracking-tight hover:bg-primary/90 transition-all">
+                    Approve & Save
+                  </button>
+                  <button onClick={() => handleDiscardEntry(idx)}
+                    className="px-8 py-4 border border-primary/20 text-primary font-headline text-lg tracking-tight hover:bg-primary/5 transition-all">
+                    Discard
+                  </button>
+                </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Duration</label>
-                <input type="text" value={pendingReview.duration}
-                  onChange={(e) => setPendingReview({ ...pendingReview, duration: e.target.value })}
-                  className="w-full px-4 py-3 bg-white/50 border border-primary/10 text-primary font-light focus:outline-none focus:border-primary/30 transition-colors" />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Matter Description</label>
-              <textarea value={pendingReview.matter_description}
-                onChange={(e) => setPendingReview({ ...pendingReview, matter_description: e.target.value })}
-                rows={3}
-                className="w-full px-4 py-3 bg-white/50 border border-primary/10 text-primary font-light focus:outline-none focus:border-primary/30 transition-colors resize-none" />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Billable Amount (ZAR)</label>
-              <input type="text" value={pendingReview.billable_amount}
-                onChange={(e) => setPendingReview({ ...pendingReview, billable_amount: e.target.value })}
-                className="w-full px-4 py-3 bg-white/50 border border-primary/10 text-primary font-light focus:outline-none focus:border-primary/30 transition-colors" />
-            </div>
-
-            <div className="flex items-center gap-4 pt-4 border-t border-primary/5">
-              <button onClick={handleApproveEntry}
-                className="flex-1 px-8 py-4 bg-primary text-white font-headline text-lg tracking-tight hover:bg-primary/90 transition-all">
-                Approve & Save to Ledger
-              </button>
-              <button onClick={handleDiscardEntry}
-                className="px-8 py-4 border border-primary/20 text-primary font-headline text-lg tracking-tight hover:bg-primary/5 transition-all">
-                Discard
-              </button>
-            </div>
+            ))}
           </div>
         )}
 

@@ -122,24 +122,31 @@ class BillingEntry(BaseModel):
     billable_amount: str
 
 
+class TranscriptionResult(BaseModel):
+    """Wrapper for multi-matter extraction + AI confidence score."""
+    entries: list[BillingEntry]
+    confidence: float  # 0.0-1.0 — how confident the AI is in its extraction
+
+
 # ====================================================================
 # 5. GEMINI — retry logic + prompt builder
 # ====================================================================
 
-def _extract_billing(client: genai.Client, audio_ref, model: str, prompt: str) -> BillingEntry:
-    """Call Gemini with structured output. Retries on 429 with exponential backoff."""
+def _extract_billing(client: genai.Client, audio_ref, model: str, prompt: str) -> TranscriptionResult:
+    """Call Gemini with structured output. Returns multiple entries + confidence.
+    Retries on 429 with exponential backoff."""
     last_err = None
     for attempt in range(MAX_RETRIES):
         try:
             response = client.models.generate_content(
                 model=model,
                 contents=[audio_ref, prompt],
-                config={"response_mime_type": "application/json", "response_schema": BillingEntry},
+                config={"response_mime_type": "application/json", "response_schema": TranscriptionResult},
             )
             # Gemini returns parsed Pydantic when possible; fall back to raw JSON
             if response.parsed:
                 return response.parsed
-            return BillingEntry(**json.loads(response.text))
+            return TranscriptionResult(**json.loads(response.text))
 
         except Exception as e:
             last_err = e
@@ -154,23 +161,25 @@ def _extract_billing(client: genai.Client, audio_ref, model: str, prompt: str) -
 
 
 def _build_prompt(hourly_rate: int) -> str:
-    """Assemble the billing-extraction prompt with the attorney's ZAR rate."""
+    """Assemble the billing-extraction prompt with the attorney's ZAR rate.
+    Supports multi-matter: if the voice note covers multiple clients/matters,
+    each gets its own entry in the entries array."""
     return (
         "You are a legal billing assistant. Listen to this voice note from a "
-        "lawyer describing work they did for a client.\n\n"
-        "Extract these fields:\n"
-        "- client_name: The name of the client or party mentioned. "
-        "If no name, use 'Unspecified Client'.\n"
-        "- matter_description: A concise summary of the legal work described.\n"
-        "- duration: The duration of the LEGAL WORK described (NOT the length "
-        "of the recording). Look for time references like 'spent 2 hours', "
-        "'took 45 minutes'. If no explicit duration, estimate based on complexity "
-        "(phone call = '15 minutes', consultation = '1 hour', review = '2 hours'). "
-        "Format as '2 hours' or '45 minutes'.\n"
-        f"- billable_amount: Calculate this. Rate is R{hourly_rate}/hr. "
-        f"Multiply duration x R{hourly_rate} and format as 'RXXXX'. "
-        f"Example: 2 hours = 'R{hourly_rate * 2}'. "
-        f"30 minutes = 'R{hourly_rate // 2}'.\n\n"
+        "lawyer describing work they did.\n\n"
+        "IMPORTANT: The voice note may describe work for MULTIPLE clients or matters. "
+        "If so, create a SEPARATE entry for each distinct client/matter.\n\n"
+        "For each entry, extract:\n"
+        "- client_name: The client or party name. Use 'Unspecified Client' if none.\n"
+        "- matter_description: Concise summary of the legal work.\n"
+        "- duration: Duration of the LEGAL WORK (not recording length). "
+        "Look for references like 'spent 2 hours', 'took 45 minutes'. "
+        "If unspecified, estimate by complexity. Format as '2 hours' or '45 minutes'.\n"
+        f"- billable_amount: Calculate using rate R{hourly_rate}/hr. "
+        f"Example: 2 hours = 'R{hourly_rate * 2}', 30 min = 'R{hourly_rate // 2}'.\n\n"
+        "Also provide a 'confidence' score (0.0 to 1.0) indicating how confident you "
+        "are in the overall extraction accuracy. Lower confidence if audio is unclear, "
+        "names are ambiguous, or durations are estimated.\n\n"
         "Return valid JSON matching the schema. Every field must be non-empty."
     )
 
@@ -228,10 +237,10 @@ async def transcribe_audio(file: UploadFile = File(...), user: dict = Depends(ge
             tmp_path = tmp.name
 
         uploaded = gemini.files.upload(file=tmp_path)
-        entry = _extract_billing(gemini, uploaded, MODEL_NAME, _build_prompt(hourly_rate))
+        result = _extract_billing(gemini, uploaded, MODEL_NAME, _build_prompt(hourly_rate))
 
-        print(f"[GEMINI] rate={hourly_rate}, result={entry.model_dump()}")
-        return JSONResponse(content=entry.model_dump())
+        print(f"[GEMINI] rate={hourly_rate}, entries={len(result.entries)}, confidence={result.confidence}")
+        return JSONResponse(content=result.model_dump())
 
     except HTTPException:
         raise
@@ -253,18 +262,24 @@ async def transcribe_audio(file: UploadFile = File(...), user: dict = Depends(ge
 
 @app.post("/billing")
 async def save_billing_entry(request: Request, user: dict = Depends(get_current_user)):
-    """Save a user-approved billing entry (HITL approve action)."""
+    """Save a user-approved billing entry (HITL approve action).
+    Stores both the approved data and the original AI output for audit trail."""
     body = await request.json()
     required = {"client_name", "matter_description", "duration", "billable_amount"}
     missing = required - set(body.keys())
     if missing:
         raise HTTPException(400, f"Missing fields: {missing}")
 
+    # Build the row — include original AI output if provided (audit trail)
+    row = {"user_id": user["id"], **{k: body[k] for k in required}}
+    if "original_ai_output" in body:
+        row["original_ai_output"] = json.dumps(body["original_ai_output"])
+
     async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
         res = await client.post(
             _rest_url("billing_entries"),
             headers=_headers(user["token"]),
-            json={"user_id": user["id"], **{k: body[k] for k in required}},
+            json=row,
         )
     if res.status_code not in (200, 201):
         raise HTTPException(500, f"Failed to save: {res.text}")
