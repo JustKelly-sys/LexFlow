@@ -4,43 +4,32 @@
 
 **[Live Demo](https://lexflow-dwa0.onrender.com)**
 
-LexFlow is a voice-to-billing intelligence platform built for South African attorneys and law firms. Attorneys dictate or upload a voice note describing their work, and LexFlow autonomously transcribes it with Gemini AI, extracts structured billing entities (client name, matter description, duration), calculates the billable amount at R2,500/hr, and generates FICA-compliant ledger entries ready for invoicing.
+LexFlow is a voice-to-billing intelligence platform built for South African attorneys and law firms. Dictate or upload a voice note, and LexFlow autonomously transcribes it with Gemini AI, extracts structured billing entities, calculates the billable amount at your custom hourly rate, and generates FICA-compliant ledger entries — all scoped to your authenticated profile.
 
 ---
 
 ## How It Works
 
-1. **Dictate or Upload** -- Record a voice note directly in the browser or drag-and-drop an audio file onto the dashboard
-2. **AI Extraction** -- Gemini AI transcribes the audio, identifies the client entity, matter description, estimated duration, and calculates the billable amount in ZAR
-3. **Ledger Entry** -- A structured billing record is saved to the ledger and displayed in real time on the executive dashboard
-
----
-
-## Demo Example
-
-Showcase how LexFlow moves beyond simple transcription to contextual billing logic:
-
-**Input File:** [JonesLegal.mp3 (Legal Interview Summary)](https://www.nch.com.au/scribe/practice/JonesLegal.mp3)
-
-**LexFlow Smart Output:**
-- **Time Entry:** 0.8 hours (approx. based on narration length/complexity)
-- **Description:** "Initial client interview and drafting of detailed case summary regarding workplace injury claim: Matter of Henry Jones."
-- **Category:** Professional Consultation / Case Assessment
-
-LexFlow identifies the Client Name (Henry Jones), the Matter Type (Personal Injury / Workman's Comp), and the Action (Interview/Summary) -- all from a single audio file.
+1. **Sign Up** — Create an account with your email and set your custom hourly rate (ZAR)
+2. **Dictate or Upload** — Record a voice note in-browser or drag-and-drop an audio file
+3. **AI Extraction** — Gemini AI transcribes the audio, identifies client, matter, duration, and calculates your billable amount
+4. **Ledger Entry** — A structured billing record is saved to your personal ledger with Row Level Security
 
 ---
 
 ## Features
 
-- **Voice Dictation** -- Record directly from the browser with one click
-- **Drag-and-Drop Upload** -- Supports MP3, WAV, M4A, WebM, FLAC, AAC, OGG
-- **Gemini AI Transcription** -- Structured entity extraction with Pydantic validation
-- **Automatic ZAR Billing** -- Calculates billable amounts at R2,500/hr
-- **Executive Dashboard** -- Real-time metrics for total hours billed and ZAR revenue
-- **Billing Ledger** -- Full history with client, matter, duration, and amount columns
-- **FICA-Compliant CSV Export** -- One-click download for accounting software integration
-- **Retry Logic** -- Exponential backoff on API rate limits for production reliability
+- **User Authentication** — Email + password auth via Supabase with session management
+- **Onboarding Flow** — First-time setup with name, firm, and custom hourly rate
+- **Custom Billing Rates** — Each user's hourly rate is dynamically passed to the AI prompt
+- **Row Level Security** — Users only see their own billing data
+- **Voice Dictation** — Record directly from the browser with one click
+- **Drag-and-Drop Upload** — Supports MP3, WAV, M4A, WebM, FLAC, AAC, OGG
+- **Gemini AI Transcription** — Structured entity extraction with Pydantic validation
+- **Executive Dashboard** — Real-time metrics for total hours billed and ZAR revenue
+- **Billing Ledger** — Full history with client, matter, duration, and amount columns
+- **FICA-Compliant CSV Export** — One-click download for accounting software integration
+- **Retry Logic** — Exponential backoff on API rate limits for production reliability
 
 ---
 
@@ -48,10 +37,11 @@ LexFlow identifies the Client Name (Henry Jones), the Matter Type (Personal Inju
 
 | Layer | Technology |
 |-------|-----------|
-| **Frontend** | React 19, Vite, TypeScript, Tailwind CSS v4, Shadcn UI, Framer Motion |
-| **Backend** | Python, FastAPI, Uvicorn |
+| **Frontend** | React 19, Vite, TypeScript, Tailwind CSS v4, Shadcn UI |
+| **Backend** | Python, FastAPI, Uvicorn, httpx |
 | **AI** | Google Gemini API (gemini-2.0-flash) |
-| **Data** | CSV storage with structured export |
+| **Database** | Supabase (PostgreSQL with Row Level Security) |
+| **Auth** | Supabase Auth (email + password) |
 | **Deployment** | Render (auto-deploy from GitHub) |
 
 ---
@@ -60,27 +50,29 @@ LexFlow identifies the Client Name (Henry Jones), the Matter Type (Personal Inju
 
 ```
 LexFlow/
-  main.py              # FastAPI backend + Gemini AI integration
-  requirements.txt     # Python dependencies
-  render.yaml          # Render deployment config
+  main.py                # FastAPI backend + Gemini AI + Supabase REST
+  requirements.txt       # Python dependencies
+  render.yaml            # Render deployment config
   frontend/
     src/
-      App.tsx           # Main application shell
+      App.tsx             # Main app shell with auth state management
       components/
-        lexflow/        # Feature components
-          Navbar.tsx
+        lexflow/          # Feature components
+          AuthPage.tsx    # Login / signup / onboarding
+          Navbar.tsx      # User info + logout
           AudioUploader.tsx
           ExecutiveMetrics.tsx
           BillingLedger.tsx
-        ui/             # Shadcn UI primitives
+        ui/               # Shadcn UI primitives
       lib/
-        utils.ts        # Tailwind class merge utility
-        formatters.ts   # ZAR currency & duration formatting
-    vite.config.ts      # Vite + Tailwind CSS v4 config
-    tailwind.config.js  # Design tokens & theme
+        supabaseClient.ts # Supabase browser client
+        utils.ts          # Tailwind class merge utility
+        formatters.ts     # ZAR currency & duration formatting
+    vite.config.ts        # Vite + Tailwind CSS v4 config
+    tailwind.config.js    # Design tokens & theme
 ```
 
-The FastAPI backend serves the compiled React build via StaticFiles. API endpoints (`/transcribe`, `/billing`, `/billing/csv`) are registered before the SPA catch-all route to ensure correct routing.
+The FastAPI backend communicates with Supabase via httpx REST calls. Auth tokens from the frontend are forwarded to Supabase for Row Level Security enforcement. API endpoints are registered before the SPA catch-all route.
 
 ---
 
@@ -102,26 +94,31 @@ npm install
 npm run build
 cd ..
 
-# Set up environment variables
-# Create a .env file with:
-# GOOGLE_API_KEY=your_api_key_here
+# Environment variables (.env file)
+GOOGLE_API_KEY=your_gemini_api_key
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_SERVICE_KEY=your_supabase_service_role_key
 
 # Run the server
 python -m uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-Open `http://localhost:8000` to access the dashboard.
+Open `http://localhost:8000` to sign up and access the dashboard.
 
 ---
 
 ## API Endpoints
 
+All endpoints except the frontend require a valid `Authorization: Bearer <token>` header.
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/` | Executive billing dashboard (React SPA) |
+| GET | `/` | React SPA (login / dashboard) |
 | POST | `/transcribe` | Upload voice note for AI billing extraction |
-| GET | `/billing` | Get all billing entries as JSON |
-| GET | `/billing/csv` | Download FICA-compliant billing CSV |
+| GET | `/billing` | Get authenticated user's billing entries |
+| GET | `/billing/csv` | Download billing data as CSV |
+| GET | `/profile` | Get authenticated user's profile |
+| PATCH | `/profile` | Update profile (name, firm, rate) |
 
 ---
 
@@ -132,24 +129,28 @@ LexFlow is configured for one-click deployment on [Render](https://render.com):
 1. Fork this repo
 2. Connect your GitHub account to Render
 3. Create a new **Web Service** pointing to the repo
-4. Set the environment variable `GOOGLE_API_KEY` in the Render dashboard
-5. Deploy -- Render reads `render.yaml`, builds both the React frontend and Python backend automatically
-
-The free tier sleeps after 15 minutes of inactivity but wakes up automatically on the next request.
+4. Set environment variables in the Render dashboard:
+   - `GOOGLE_API_KEY`
+   - `SUPABASE_URL`
+   - `SUPABASE_SERVICE_KEY`
+   - `NODE_VERSION=20`
+5. Deploy — Render reads `render.yaml` and builds both frontend and backend automatically
 
 ---
 
 ## Development Journey
 
-**Phase 1: Core Transcription Engine** -- Built a FastAPI endpoint that accepts audio files, sends them to Gemini for transcription, and extracts structured billing data using a custom prompt.
+**Phase 1: Core Transcription Engine** — FastAPI endpoint accepting audio files, Gemini transcription, and structured billing extraction.
 
-**Phase 2: Structured Output and Data Persistence** -- Replaced free-text parsing with Pydantic schema validation and Gemini's structured JSON output. Added CSV-based storage for billing record persistence.
+**Phase 2: Structured Output** — Pydantic schema validation with Gemini's JSON output. CSV-based storage for billing records.
 
-**Phase 3: Rate Limiting and Reliability** -- Implemented exponential backoff retry logic to handle Gemini API rate limits (429 errors) gracefully.
+**Phase 3: Reliability** — Exponential backoff retry logic for Gemini API rate limits.
 
-**Phase 4: Professional Dashboard** -- Evolved from an embedded HTML dashboard through several design iterations to a full React SPA with Shadcn UI components, fluted-glass visual effects, and Framer Motion animations.
+**Phase 4: Professional Dashboard** — Full React SPA with Shadcn UI, fluted-glass effects, and a premium legal-tech aesthetic.
 
-**Phase 5: Firebase Studio UI and Integration** -- Designed the final "Voice Intelligence Simplified" interface in Firebase Studio with a premium legal-tech aesthetic, then migrated it into the local Vite/React project with full backend connectivity.
+**Phase 5: Firebase Studio UI** — Designed the "Voice Intelligence Simplified" interface in Firebase Studio, then migrated to local Vite/React.
+
+**Phase 6: Supabase Integration** — Migrated from CSV to Supabase Postgres. Added user authentication, per-user billing profiles with custom hourly rates, and Row Level Security.
 
 ---
 
@@ -159,4 +160,4 @@ MIT
 
 ## Author
 
-**Tshepiso Jafta** -- [LinkedIn](https://www.linkedin.com/in/tshepisojafta/)
+**Tshepiso Jafta** — [LinkedIn](https://www.linkedin.com/in/tshepisojafta/)
