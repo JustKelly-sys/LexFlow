@@ -4,12 +4,13 @@ import { Loader2, ArrowRight, Mail, Lock, User, Building2 } from "lucide-react";
 
 interface AuthPageProps {
   onAuth: () => void;
+  initialMode?: Mode;
 }
 
 type Mode = "login" | "signup" | "onboarding";
 
-export function AuthPage({ onAuth }: AuthPageProps) {
-  const [mode, setMode] = useState<Mode>("login");
+export function AuthPage({ onAuth, initialMode = "login" }: AuthPageProps) {
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -32,9 +33,10 @@ export function AuthPage({ onAuth }: AuthPageProps) {
         setError(error.message);
       }
       setLoading(false);
-    } else {
-      onAuth();
     }
+    // Don't call onAuth() here — supabase.auth.onAuthStateChange() in App.tsx
+    // handles session changes. Calling onAuth() causes a race condition where
+    // fetchProfile() runs with a stale null session.
   };
 
   const handleDemo = async () => {

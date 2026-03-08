@@ -12,6 +12,7 @@ import json
 import shutil
 import tempfile
 import time
+import asyncio
 import httpx
 from datetime import datetime
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Depends
@@ -71,7 +72,7 @@ async def get_current_user(request: Request) -> dict:
     
     token = auth_header.replace("Bearer ", "")
     
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=10.0) as client:
         res = await client.get(
             supabase_auth("user"),
             headers={"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {token}"}
@@ -309,7 +310,7 @@ async def seed_demo_data(user: dict = Depends(get_current_user)):
 @app.get("/billing")
 async def get_billing(user: dict = Depends(get_current_user)):
     """Return billing entries for the authenticated user."""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=15.0) as client:
         res = await client.get(
             supabase_rest("billing_entries?select=*&order=created_at.desc"),
             headers=supabase_headers(user["token"])
@@ -323,7 +324,7 @@ async def get_billing(user: dict = Depends(get_current_user)):
 @app.get("/billing/csv")
 async def download_csv(user: dict = Depends(get_current_user)):
     """Generate CSV from Supabase billing entries."""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=15.0) as client:
         res = await client.get(
             supabase_rest("billing_entries?select=*&order=created_at.desc"),
             headers=supabase_headers(user["token"])
@@ -352,7 +353,7 @@ async def download_csv(user: dict = Depends(get_current_user)):
 @app.get("/profile")
 async def get_profile(user: dict = Depends(get_current_user)):
     """Get the authenticated user's profile."""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=15.0) as client:
         res = await client.get(
             supabase_rest(f"profiles?id=eq.{user['id']}&select=*"),
             headers=supabase_headers(user["token"])
@@ -372,7 +373,7 @@ async def update_profile(request: Request, user: dict = Depends(get_current_user
     if not update_data:
         raise HTTPException(status_code=400, detail="No valid fields to update")
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=15.0) as client:
         res = await client.patch(
             supabase_rest(f"profiles?id=eq.{user['id']}"),
             headers=supabase_headers(user["token"]),
