@@ -1,6 +1,12 @@
-import { User, ShieldCheck, Search } from "lucide-react";
+import { User, ShieldCheck, Search, LogOut } from "lucide-react";
 
-export function Navbar() {
+interface NavbarProps {
+  userName?: string;
+  firmName?: string;
+  onLogout?: () => void;
+}
+
+export function Navbar({ userName, firmName, onLogout }: NavbarProps) {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 py-6 pointer-events-none">
       <div className="flex items-center gap-2 pointer-events-auto cursor-pointer">
@@ -9,16 +15,25 @@ export function Navbar() {
       </div>
 
       <div className="flex items-center gap-6 pointer-events-auto">
-        <button className="p-2 text-muted-foreground hover:text-primary transition-colors">
-          <Search size={20} strokeWidth={1.5} />
-        </button>
+        {userName && (
+          <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="font-medium text-primary">{userName}</span>
+            {firmName && <span className="text-muted-foreground/50">| {firmName}</span>}
+          </div>
+        )}
         <button className="p-2 text-muted-foreground hover:text-primary transition-colors flex items-center gap-2 text-xs font-medium uppercase tracking-widest">
           <ShieldCheck size={20} strokeWidth={1.5} />
-          <span className="hidden sm:inline">FICA Compliant</span>
+          <span className="hidden sm:inline">FICA</span>
         </button>
-        <button className="p-2 border border-primary/10 rounded-full hover:bg-white transition-all shadow-sm">
-          <User size={20} strokeWidth={1.5} />
-        </button>
+        {onLogout && (
+          <button
+            onClick={onLogout}
+            className="p-2 text-muted-foreground hover:text-destructive transition-colors"
+            title="Sign Out"
+          >
+            <LogOut size={20} strokeWidth={1.5} />
+          </button>
+        )}
       </div>
     </nav>
   );

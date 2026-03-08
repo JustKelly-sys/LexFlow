@@ -2,27 +2,28 @@
 LexFlow - Billing Intelligence Platform
 
 A FastAPI application that converts attorney voice notes into structured
-billing entries using Google Gemini AI. Designed for South African law firms
-with ZAR billing rates and FICA-compliant record keeping.
+billing entries using Google Gemini AI. Uses Supabase for auth and data storage.
 
 Author: Tshepiso Jafta
 Version: 3.0
 """
 import os
-import csv
 import json
 import shutil
 import tempfile
 import time
+import httpx
 from datetime import datetime
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import JSONResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from google import genai
 from google.genai import types
 from pydantic import BaseModel
 from dotenv import load_dotenv
+import io
+import csv
 
 # Load environment variables
 load_dotenv()
@@ -30,16 +31,56 @@ load_dotenv()
 # --- Configuration ---
 API_KEY = os.getenv("GOOGLE_API_KEY")
 MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
-BILLING_FILE = "billing.csv"
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 ALLOWED_AUDIO_EXTENSIONS = {".mp3", ".wav", ".m4a", ".ogg", ".webm", ".flac", ".aac", ".wma"}
 MAX_RETRIES = 3
-RETRY_BASE_DELAY = 5  # seconds
+RETRY_BASE_DELAY = 5
 FRONTEND_DIST = os.path.join(os.path.dirname(__file__), "frontend", "dist")
 
 if not API_KEY:
     print("WARNING: GOOGLE_API_KEY not found in .env file.")
+if not SUPABASE_URL:
+    print("WARNING: SUPABASE_URL not found in .env file.")
 
-# --- Pydantic schema for structured Gemini output ---
+# --- Supabase REST helpers ---
+def supabase_headers(user_token: str = None):
+    """Headers for Supabase REST API calls."""
+    key = user_token or SUPABASE_SERVICE_KEY
+    return {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation",
+    }
+
+def supabase_rest(path: str):
+    """Build full Supabase REST URL."""
+    return f"{SUPABASE_URL}/rest/v1/{path}"
+
+def supabase_auth(path: str):
+    """Build full Supabase Auth URL."""
+    return f"{SUPABASE_URL}/auth/v1/{path}"
+
+# --- Auth dependency ---
+async def get_current_user(request: Request) -> dict:
+    """Extract and verify user from Authorization header."""
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
+    
+    token = auth_header.replace("Bearer ", "")
+    
+    async with httpx.AsyncClient() as client:
+        res = await client.get(
+            supabase_auth("user"),
+            headers={"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {token}"}
+        )
+        if res.status_code != 200:
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
+        return {**res.json(), "token": token}
+
+# --- Pydantic schema ---
 class BillingEntry(BaseModel):
     client_name: str
     matter_description: str
@@ -57,46 +98,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- CSV helpers ---
-CSV_FIELDS = ["Timestamp", "Client Name", "Matter Description", "Duration", "Billable Amount"]
-
-def save_to_csv(data: dict):
-    """Append a billing record to the CSV file. Raises on failure."""
-    file_exists = os.path.isfile(BILLING_FILE)
-    record = {
-        "Timestamp": datetime.now().isoformat(),
-        "Client Name": data.get("client_name", ""),
-        "Matter Description": data.get("matter_description", ""),
-        "Duration": data.get("duration", ""),
-        "Billable Amount": data.get("billable_amount", ""),
-    }
-    with open(BILLING_FILE, mode="a", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
-        if not file_exists:
-            writer.writeheader()
-        writer.writerow(record)
-
-def read_csv() -> list[dict]:
-    """Read billing.csv and return as a list of dicts."""
-    if not os.path.isfile(BILLING_FILE):
-        return []
-    with open(BILLING_FILE, mode="r", newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        return list(reader)
-
 # --- Gemini call with retry ---
 def call_gemini_with_retry(client: genai.Client, uploaded_file, model: str, prompt: str) -> BillingEntry:
-    """Call Gemini with exponential backoff on 429 errors."""
     last_error = None
     for attempt in range(MAX_RETRIES):
         try:
             response = client.models.generate_content(
                 model=model,
                 contents=[uploaded_file, prompt],
-                config={
-                    "response_mime_type": "application/json",
-                    "response_schema": BillingEntry,
-                },
+                config={"response_mime_type": "application/json", "response_schema": BillingEntry},
             )
             if response.parsed:
                 return response.parsed
@@ -115,53 +125,78 @@ def call_gemini_with_retry(client: genai.Client, uploaded_file, model: str, prom
 
 
 # =====================================================
-# API ENDPOINTS (registered FIRST so they take priority)
+# API ENDPOINTS
 # =====================================================
 
 @app.post("/transcribe")
-async def transcribe_audio(file: UploadFile = File(...)):
-    # Validate API key
-    if not API_KEY or API_KEY == "replace_me_with_your_actual_api_key":
-        raise HTTPException(status_code=500, detail="Server misconfigured: missing GOOGLE_API_KEY in .env")
-
-    # Validate file type
+async def transcribe_audio(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+    if not API_KEY:
+        raise HTTPException(status_code=500, detail="Server misconfigured: missing GOOGLE_API_KEY")
+    
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in ALLOWED_AUDIO_EXTENSIONS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported file type '{ext}'. Allowed: {', '.join(sorted(ALLOWED_AUDIO_EXTENSIONS))}"
+        raise HTTPException(status_code=400, detail=f"Unsupported file type '{ext}'")
+
+    # Get user's hourly rate from profile
+    async with httpx.AsyncClient(timeout=15.0) as client_http:
+        profile_res = await client_http.get(
+            supabase_rest(f"profiles?id=eq.{user['id']}&select=hourly_rate"),
+            headers=supabase_headers(user["token"])
         )
+        print(f"[RATE LOOKUP] status={profile_res.status_code}, data={profile_res.text}")
+        hourly_rate = 2500
+        if profile_res.status_code == 200:
+            profiles = profile_res.json()
+            if profiles:
+                hourly_rate = profiles[0].get("hourly_rate", 2500)
 
-    # Initialize Gemini client
-    client = genai.Client(api_key=API_KEY)
-
+    gemini_client = genai.Client(api_key=API_KEY)
     tmp_path = None
     try:
-        # Save upload to temp file (preserving extension for Gemini)
         with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
             shutil.copyfileobj(file.file, tmp)
             tmp_path = tmp.name
 
-        # Upload to Gemini File API
-        uploaded_file = client.files.upload(file=tmp_path)
+        uploaded_file = gemini_client.files.upload(file=tmp_path)
 
-        # Prompt
         prompt = (
-            "Listen to this voice note from a lawyer. Extract the following billing details:\n"
-            "- client_name: The name of the client mentioned\n"
-            "- matter_description: What legal work was described\n"
-            "- duration: How long the work took (e.g. '2 hours', '30 minutes')\n"
-            "- billable_amount: Calculate at R2500/hr (e.g. if 2 hours -> 'R5000')\n\n"
-            "Return valid JSON matching the schema."
+            f"You are a legal billing assistant. Listen to this voice note from a lawyer describing work they did for a client.\n\n"
+            f"Extract these fields:\n"
+            f"- client_name: The name of the client or party mentioned. If no name, use 'Unspecified Client'.\n"
+            f"- matter_description: A concise summary of the legal work described.\n"
+            f"- duration: The duration of the LEGAL WORK described (NOT the length of the recording). "
+            f"Look for time references like 'spent 2 hours', 'took 45 minutes', 'half an hour'. "
+            f"If no explicit duration is mentioned, estimate based on the complexity of work described "
+            f"(brief phone call = '15 minutes', consultation = '1 hour', detailed review = '2 hours'). "
+            f"Format as e.g. '2 hours' or '45 minutes'.\n"
+            f"- billable_amount: You MUST calculate this. The attorney's rate is R{hourly_rate} per hour. "
+            f"Multiply the duration by R{hourly_rate}/hr and format as 'RXXXX'. "
+            f"Example: 2 hours at R{hourly_rate}/hr = 'R{hourly_rate * 2}'. "
+            f"30 minutes at R{hourly_rate}/hr = 'R{hourly_rate // 2}'.\n\n"
+            f"Return valid JSON matching the schema. Every field must have a non-empty value."
         )
 
-        # Call Gemini with retry
-        entry = call_gemini_with_retry(client, uploaded_file, MODEL_NAME, prompt)
+        entry = call_gemini_with_retry(gemini_client, uploaded_file, MODEL_NAME, prompt)
+        entry_data = entry.model_dump()
+        print(f"[GEMINI RESULT] hourly_rate={hourly_rate}, raw={entry_data}")
 
-        # Save to CSV
-        save_to_csv(entry.model_dump())
+        # Save to Supabase
+        async with httpx.AsyncClient(timeout=15.0) as client_http:
+            insert_res = await client_http.post(
+                supabase_rest("billing_entries"),
+                headers=supabase_headers(user["token"]),
+                json={
+                    "user_id": user["id"],
+                    "client_name": entry_data["client_name"],
+                    "matter_description": entry_data["matter_description"],
+                    "duration": entry_data["duration"],
+                    "billable_amount": entry_data["billable_amount"],
+                }
+            )
+            if insert_res.status_code not in (200, 201):
+                print(f"Supabase insert error: {insert_res.text}")
 
-        return JSONResponse(content=entry.model_dump())
+        return JSONResponse(content=entry_data)
 
     except HTTPException:
         raise
@@ -173,37 +208,97 @@ async def transcribe_audio(file: UploadFile = File(...)):
 
 
 @app.get("/billing")
-async def get_billing():
-    """Return all billing entries from CSV as JSON."""
-    entries = read_csv()
-    return JSONResponse(content={"count": len(entries), "entries": entries})
+async def get_billing(user: dict = Depends(get_current_user)):
+    """Return billing entries for the authenticated user."""
+    async with httpx.AsyncClient() as client:
+        res = await client.get(
+            supabase_rest("billing_entries?select=*&order=created_at.desc"),
+            headers=supabase_headers(user["token"])
+        )
+        if res.status_code != 200:
+            return JSONResponse(content={"count": 0, "entries": []})
+        entries = res.json()
+        return JSONResponse(content={"count": len(entries), "entries": entries})
 
 
 @app.get("/billing/csv")
-async def download_csv():
-    """Download billing.csv directly."""
-    from fastapi.responses import FileResponse
-    if not os.path.isfile(BILLING_FILE):
-        raise HTTPException(status_code=404, detail="No billing data yet.")
-    return FileResponse(BILLING_FILE, filename="billing.csv", media_type="text/csv")
+async def download_csv(user: dict = Depends(get_current_user)):
+    """Generate CSV from Supabase billing entries."""
+    async with httpx.AsyncClient() as client:
+        res = await client.get(
+            supabase_rest("billing_entries?select=*&order=created_at.desc"),
+            headers=supabase_headers(user["token"])
+        )
+        entries = res.json() if res.status_code == 200 else []
+
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=["Timestamp", "Client Name", "Matter Description", "Duration", "Billable Amount"])
+    writer.writeheader()
+    for e in entries:
+        writer.writerow({
+            "Timestamp": e.get("created_at", ""),
+            "Client Name": e.get("client_name", ""),
+            "Matter Description": e.get("matter_description", ""),
+            "Duration": e.get("duration", ""),
+            "Billable Amount": e.get("billable_amount", ""),
+        })
+    
+    return StreamingResponse(
+        io.BytesIO(output.getvalue().encode()),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=billing.csv"}
+    )
+
+
+@app.get("/profile")
+async def get_profile(user: dict = Depends(get_current_user)):
+    """Get the authenticated user's profile."""
+    async with httpx.AsyncClient() as client:
+        res = await client.get(
+            supabase_rest(f"profiles?id=eq.{user['id']}&select=*"),
+            headers=supabase_headers(user["token"])
+        )
+        if res.status_code == 200 and res.json():
+            return JSONResponse(content=res.json()[0])
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+
+@app.patch("/profile")
+async def update_profile(request: Request, user: dict = Depends(get_current_user)):
+    """Update the authenticated user's profile (onboarding, rate changes, etc.)."""
+    body = await request.json()
+    allowed_fields = {"full_name", "firm_name", "phone", "hourly_rate", "onboarded"}
+    update_data = {k: v for k, v in body.items() if k in allowed_fields}
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+
+    async with httpx.AsyncClient() as client:
+        res = await client.patch(
+            supabase_rest(f"profiles?id=eq.{user['id']}"),
+            headers=supabase_headers(user["token"]),
+            json=update_data
+        )
+        if res.status_code in (200, 204):
+            if res.text:
+                return JSONResponse(content=res.json()[0] if res.json() else {})
+            return JSONResponse(content={"status": "updated"})
+        raise HTTPException(status_code=500, detail=f"Failed to update profile: {res.text}")
 
 
 # =====================================================
-# STATIC FRONTEND SERVING (registered LAST = catch-all)
+# STATIC FRONTEND SERVING (catch-all, registered LAST)
 # =====================================================
-
 if os.path.isdir(FRONTEND_DIST):
-    # Mount compiled JS/CSS assets
     app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIST, "assets")), name="assets")
 
     @app.get("/{full_path:path}", response_class=HTMLResponse)
     async def serve_frontend(full_path: str):
-        """Serve index.html for all non-API routes (React SPA routing)."""
         index_file = os.path.join(FRONTEND_DIST, "index.html")
         if os.path.isfile(index_file):
             with open(index_file, "r", encoding="utf-8") as f:
                 return f.read()
-        return "Frontend build not found. Run 'npm run build' in the frontend directory."
+        return "Frontend build not found."
 else:
     @app.get("/", response_class=HTMLResponse)
     async def dashboard():

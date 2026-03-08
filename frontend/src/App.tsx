@@ -1,65 +1,100 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabaseClient';
 import { Navbar } from '@/components/lexflow/Navbar';
 import { AudioUploader } from '@/components/lexflow/AudioUploader';
 import { ExecutiveMetrics } from '@/components/lexflow/ExecutiveMetrics';
 import { BillingLedger, BillingEntry } from '@/components/lexflow/BillingLedger';
-
-const BILLING_RATE = 2500; // ZAR per hour
+import { AuthPage } from '@/components/lexflow/AuthPage';
+import type { Session } from '@supabase/supabase-js';
 
 export default function App() {
-  // ==========================================
-  // BACKEND LOGIC & STATE (UNCHANGED)
-  // ==========================================
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<any>(null);
   const [entries, setEntries] = useState<BillingEntry[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
 
-  const fetchBilling = async () => {
+  // Auth state listener
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Fetch profile + billing when session changes
+  useEffect(() => {
+    if (session) {
+      fetchProfile();
+      fetchBilling();
+      const interval = setInterval(fetchBilling, 15000);
+      return () => clearInterval(interval);
+    }
+  }, [session]);
+
+  const authHeaders = () => ({
+    'Authorization': `Bearer ${session?.access_token}`,
+    'Content-Type': 'application/json',
+  });
+
+  const fetchProfile = async () => {
+    if (!session) return;
     try {
-      const res = await fetch('/billing');
+      const res = await fetch('/profile', { headers: authHeaders() });
       if (res.ok) {
         const data = await res.json();
-        // Map CSV entries from backend to BillingEntry shape
-        const mapped: BillingEntry[] = (data.entries || []).map((e: any, i: number) => {
-          // Parse duration string (e.g. "2 hours", "30 minutes") to decimal hours
-          const durStr = (e.Duration || e.duration || '0').toLowerCase();
-          let hours = 0;
-          const hourMatch = durStr.match(/([\.\d]+)\s*h/);
-          const minMatch = durStr.match(/([\.\d]+)\s*m/);
-          if (hourMatch) hours += parseFloat(hourMatch[1]);
-          if (minMatch) hours += parseFloat(minMatch[1]) / 60;
-          if (!hourMatch && !minMatch) hours = parseFloat(durStr) || 0;
-
-          // Parse amount string (e.g. "R5000") to number
-          const amtStr = (e['Billable Amount'] || e.billable_amount || '0').replace(/[^\d.]/g, '');
-          const amount = parseFloat(amtStr) || 0;
-
-          return {
-            id: String(i),
-            timestamp: e.Timestamp || e.timestamp || new Date().toISOString(),
-            clientName: e['Client Name'] || e.client_name || 'Unknown',
-            matterDescription: e['Matter Description'] || e.matter_description || '',
-            duration: hours,
-            amount: amount,
-          };
-        });
-        setEntries(mapped.reverse());
+        setProfile(data);
+      } else if (res.status === 401) {
+        // Stale or invalid session - sign out
+        await supabase.auth.signOut();
+        setSession(null);
+        setProfile(null);
       }
     } catch (e) {
-      console.error("Failed to fetch billing", e);
+      console.error('Failed to fetch profile', e);
     }
   };
 
-  useEffect(() => {
-    fetchBilling();
-    const interval = setInterval(fetchBilling, 10000);
-    return () => clearInterval(interval);
-  }, []);
+  const fetchBilling = async () => {
+    if (!session) return;
+    try {
+      const res = await fetch('/billing', { headers: authHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        const mapped: BillingEntry[] = (data.entries || []).map((e: any, i: number) => {
+          const durStr = (e.duration || '0').toLowerCase();
+          let hours = 0;
+          const hourMatch = durStr.match(/([\d.]+)\s*h/);
+          const minMatch = durStr.match(/([\d.]+)\s*m/);
+          if (hourMatch) hours += parseFloat(hourMatch[1]);
+          if (minMatch) hours += parseFloat(minMatch[1]) / 60;
+          if (!hourMatch && !minMatch) hours = parseFloat(durStr) || 0;
+          const amtStr = (e.billable_amount || '0').replace(/[^\d.]/g, '');
+          return {
+            id: e.id || String(i),
+            timestamp: e.created_at || new Date().toISOString(),
+            clientName: e.client_name || 'Unknown',
+            matterDescription: e.matter_description || '',
+            duration: hours,
+            amount: parseFloat(amtStr) || 0,
+          };
+        });
+        setEntries(mapped);
+      }
+    } catch (e) {
+      console.error('Failed to fetch billing', e);
+    }
+  };
 
-  // Upload handler: receives a File from AudioUploader, posts via FormData
   const handleUpload = async (file: File) => {
+    if (!session) return;
     setIsProcessing(true);
-    setStatusMsg('Transcribing with Gemini AI...');
+    setStatusMsg('Processing your voice note...');
 
     const formData = new FormData();
     formData.append('file', file, file.name);
@@ -67,9 +102,9 @@ export default function App() {
     try {
       const res = await fetch('/transcribe', {
         method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
         body: formData,
       });
-
       if (!res.ok) {
         const err = await res.json();
         setStatusMsg('Error: ' + (err.detail || 'Processing failed'));
@@ -86,26 +121,64 @@ export default function App() {
   };
 
   const handleExport = () => {
-    window.open('/billing/csv', '_blank');
+    if (!session) return;
+    // Open CSV download with auth
+    const url = `/billing/csv`;
+    fetch(url, { headers: authHeaders() })
+      .then(res => res.blob())
+      .then(blob => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'billing.csv';
+        a.click();
+      });
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    setProfile(null);
+    setEntries([]);
   };
 
   const totalHours = entries.reduce((acc, curr) => acc + curr.duration, 0);
   const totalRevenue = entries.reduce((acc, curr) => acc + curr.amount, 0);
 
-  // ==========================================
-  // UI RENDER (FIREBASE DESIGN)
-  // ==========================================
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-muted-foreground font-headline text-lg tracking-tight">Loading...</div>
+      </div>
+    );
+  }
+
+  // Not logged in - show auth page
+  if (!session) {
+    return <AuthPage onAuth={() => { fetchProfile(); fetchBilling(); }} />;
+  }
+
+  // Profile not loaded yet - loading state
+  if (profile === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-muted-foreground font-headline text-lg tracking-tight">Loading...</div>
+      </div>
+    );
+  }
+
+  // Profile exists but not onboarded - show onboarding
+  if (!profile.onboarded) {
+    return <AuthPage onAuth={() => { fetchProfile(); fetchBilling(); }} />;
+  }
+
   return (
     <main className="relative min-h-screen pt-24 px-8 md:px-16 lg:px-24 overflow-x-hidden">
-      {/* Visual Background Layers */}
       <div className="fixed inset-0 -z-10 pointer-events-none overflow-hidden bg-background">
-        {/* Top Wireframe Pattern */}
         <div className="absolute inset-0 topo-pattern opacity-60" />
-        {/* Subtle Gradient */}
         <div className="absolute bottom-0 left-0 right-0 h-[40vh] bg-gradient-to-t from-background via-background/60 to-transparent" />
       </div>
 
-      <Navbar />
+      <Navbar userName={profile?.full_name} firmName={profile?.firm_name} onLogout={handleLogout} />
 
       <div className="max-w-7xl mx-auto space-y-24 animate-in fade-in slide-in-from-bottom-4 duration-1000 relative z-10">
         <AudioUploader onUpload={handleUpload} isProcessing={isProcessing} statusMsg={statusMsg} />

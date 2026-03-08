@@ -75,9 +75,9 @@ export function AudioUploader({ onUpload, isProcessing, statusMsg }: AudioUpload
           <div className="flex flex-col items-center gap-6 animate-in fade-in zoom-in duration-500">
             <Loader2 className="w-16 h-16 text-accent animate-spin" strokeWidth={1} />
             <p className="font-headline text-2xl font-light tracking-tight text-primary">
-              {statusMsg || "Transcribing with Gemini AI..."}
+              {statusMsg || "Processing your voice note..."}
             </p>
-            <p className="text-muted-foreground text-sm uppercase tracking-widest">Analyzing Client Context & Matter Details</p>
+            <p className="text-muted-foreground text-sm uppercase tracking-widest">This may take a moment</p>
           </div>
         ) : isRecording ? (
           <div className="flex flex-col items-center gap-8 z-10">
