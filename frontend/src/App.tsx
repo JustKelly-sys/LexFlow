@@ -148,7 +148,7 @@ export default function App() {
 
     try {
       setPipelineStage('transcribing');
-      setStatusMsg('Transcribing with Gemini...');
+      setStatusMsg('Transcribing audio...');
 
       const res = await fetch('/transcribe', {
         method: 'POST',

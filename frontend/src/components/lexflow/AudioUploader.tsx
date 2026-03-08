@@ -100,7 +100,7 @@ export function AudioUploader({ onUpload, isProcessing, statusMsg, pipelineStage
                 </div>
                 <span className={`text-sm font-headline tracking-tight ${
                   pipelineStage === 'transcribing' ? 'text-primary font-medium' : 'text-muted-foreground'
-                }`}>Transcribing with Gemini...</span>
+                }`}>Transcribing audio...</span>
               </div>
 
               {/* Step 3: Extract */}
