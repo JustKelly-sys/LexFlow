@@ -1,22 +1,27 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { Navbar } from '@/components/lexflow/Navbar';
 import { AudioUploader } from '@/components/lexflow/AudioUploader';
 import { ExecutiveMetrics } from '@/components/lexflow/ExecutiveMetrics';
 import { BillingLedger, BillingEntry } from '@/components/lexflow/BillingLedger';
+import { InvoiceGenerator } from '@/components/lexflow/InvoiceGenerator';
 import { AuthPage } from '@/components/lexflow/AuthPage';
 import { Toaster, toast } from 'sonner';
 import type { Session } from '@supabase/supabase-js';
+
+// ── Types ──────────────────────────────────────────────────────────
 
 interface PendingReview {
   client_name: string;
   matter_description: string;
   duration: string;
   billable_amount: string;
-  original_ai_output?: Record<string, string>;  // audit trail: what the AI originally extracted
+  original_ai_output?: Record<string, string>;
 }
 
-// Single Toaster config — no more copy-pasting
+// ── Toast config ───────────────────────────────────────────────────
+
 const TOASTER_OPTS = {
   unstyled: true as const,
   classNames: {
@@ -31,6 +36,187 @@ const TOASTER_OPTS = {
   },
 };
 
+// ── Dictate Page ───────────────────────────────────────────────────
+
+function DictatePage({
+  session, profile, pipelineStage, isProcessing, statusMsg, pendingReviews,
+  confidence, reviewRef, handleUpload, handleApproveEntry, handleApproveAll,
+  handleDiscardEntry, handleUpdateReview, setPipelineStage, setIsProcessing,
+  setStatusMsg, setPendingReviews, setConfidence, buildHeaders, fetchBilling,
+}: any) {
+  const navigate = useNavigate();
+
+  const onUpload = async (file: File) => {
+    if (!session) return;
+    setIsProcessing(true);
+    setPipelineStage('uploading');
+    setStatusMsg('Uploading audio...');
+
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+
+    try {
+      setPipelineStage('transcribing');
+      setStatusMsg('Transcribing audio...');
+
+      const res = await fetch('/transcribe', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
+        body: formData,
+      });
+
+      setPipelineStage('extracting');
+      setStatusMsg('Extracting billing entities...');
+
+      if (!res.ok) {
+        const err = await res.json();
+        const msg = err.detail || 'Processing failed';
+        if (msg.includes('429') || msg.includes('rate limit')) {
+          toast.error('High traffic. Please try again in a moment.');
+        } else {
+          toast.error(msg);
+        }
+      } else {
+        const data = await res.json();
+        const entries = data.entries || [data];
+        const conf = data.confidence;
+
+        const pct = conf != null ? Math.round(conf * 100) : null;
+        const confLabel = pct != null
+          ? pct >= 80 ? `High confidence (${pct}%)` : `Review carefully — confidence ${pct}%`
+          : '';
+        toast.success(`Extraction complete — ${entries.length} ${entries.length === 1 ? 'entry' : 'entries'} found. ${confLabel}`);
+
+        setPendingReviews(entries.map((e: any) => ({
+          ...e,
+          original_ai_output: { ...e },
+        })));
+        setConfidence(conf ?? null);
+        setPipelineStage('done');
+
+        // Scroll to review section
+        setTimeout(() => reviewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
+      }
+    } catch {
+      toast.error('Network error. Please check your connection.');
+    } finally {
+      setIsProcessing(false);
+      setStatusMsg('');
+      setTimeout(() => setPipelineStage('idle'), 1500);
+    }
+  };
+
+  return (
+    <div className="space-y-12">
+      <AudioUploader onUpload={onUpload} isProcessing={isProcessing} statusMsg={statusMsg} pipelineStage={pipelineStage} />
+
+      {/* HITL review cards */}
+      {pendingReviews.length > 0 && (
+        <div ref={reviewRef} className="max-w-3xl mx-auto space-y-6">
+          {/* Header with confidence badge */}
+          <div className="fluted-glass p-6 flex items-center justify-between">
+            <div>
+              <h2 className="font-headline text-2xl font-light tracking-tight text-primary">
+                Review Extraction{pendingReviews.length > 1 ? `s (${pendingReviews.length})` : ''}
+              </h2>
+              <p className="text-muted-foreground text-sm mt-1">Verify and edit before saving to your ledger</p>
+            </div>
+            <div className="flex items-center gap-4">
+              {confidence != null && (
+                <div className={`px-3 py-1.5 text-xs font-medium uppercase tracking-widest border ${
+                  confidence >= 0.8 ? 'border-emerald-300 text-emerald-700 bg-emerald-50' :
+                  confidence >= 0.5 ? 'border-amber-300 text-amber-700 bg-amber-50' :
+                  'border-red-300 text-red-700 bg-red-50'
+                }`}>
+                  {Math.round(confidence * 100)}% Confidence
+                </div>
+              )}
+              {pendingReviews.length > 1 && (
+                <button onClick={handleApproveAll}
+                  className="px-4 py-2 bg-primary text-white text-xs font-headline uppercase tracking-widest hover:bg-primary/90 transition-all">
+                  Approve All
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Individual review cards */}
+          {pendingReviews.map((review: PendingReview, idx: number) => (
+            <div key={idx} className="fluted-glass p-8 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              {pendingReviews.length > 1 && (
+                <div className="flex items-center gap-2 pb-2 border-b border-primary/5">
+                  <span className="text-xs text-muted-foreground uppercase tracking-widest font-medium">
+                    Entry {idx + 1} of {pendingReviews.length}
+                  </span>
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Client Name</label>
+                  <input type="text" value={review.client_name}
+                    onChange={(e) => handleUpdateReview(idx, 'client_name', e.target.value)}
+                    className="w-full px-4 py-3 bg-white/50 border border-primary/10 text-primary font-light focus:outline-none focus:border-primary/30 transition-colors" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Duration</label>
+                  <input type="text" value={review.duration}
+                    onChange={(e) => handleUpdateReview(idx, 'duration', e.target.value)}
+                    className="w-full px-4 py-3 bg-white/50 border border-primary/10 text-primary font-light focus:outline-none focus:border-primary/30 transition-colors" />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Matter Description</label>
+                <textarea value={review.matter_description}
+                  onChange={(e) => handleUpdateReview(idx, 'matter_description', e.target.value)}
+                  rows={3}
+                  className="w-full px-4 py-3 bg-white/50 border border-primary/10 text-primary font-light focus:outline-none focus:border-primary/30 transition-colors resize-none scrollbar-hide max-h-32 overflow-y-auto" />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Billable Amount (ZAR)</label>
+                <input type="text" value={review.billable_amount}
+                  onChange={(e) => handleUpdateReview(idx, 'billable_amount', e.target.value)}
+                  className="w-full px-5 py-4 bg-white/50 border border-primary/10 text-primary text-2xl font-headline font-medium tabular-nums focus:outline-none focus:border-primary/30 transition-colors" />
+              </div>
+
+              <div className="flex items-center gap-4 pt-4 border-t border-primary/5">
+                <button onClick={() => handleApproveEntry(idx)}
+                  className="flex-1 px-8 py-4 bg-primary text-white font-headline text-lg tracking-tight hover:bg-primary/90 transition-all">
+                  Approve & Save
+                </button>
+                <button onClick={() => handleDiscardEntry(idx)}
+                  className="px-6 py-4 text-muted-foreground text-sm font-headline tracking-tight hover:text-destructive transition-colors">
+                  Discard
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Ledger Page ────────────────────────────────────────────────────
+
+function LedgerPage({ entries, totalHours, totalRevenue, onExport, profile }: any) {
+  return (
+    <div className="space-y-8 pt-8">
+      <ExecutiveMetrics totalHours={totalHours} totalRevenue={totalRevenue} entryCount={entries.length} />
+      <BillingLedger entries={entries} onExport={onExport} />
+      {/* Invoice generator below ledger */}
+      <div className="flex justify-end pb-12">
+        <InvoiceGenerator entries={entries} firmName={profile?.firm_name} userName={profile?.full_name} />
+      </div>
+    </div>
+  );
+}
+
+// ── App (root) ─────────────────────────────────────────────────────
+
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -44,13 +230,13 @@ export default function App() {
   const [confidence, setConfidence] = useState<number | null>(null);
   const reviewRef = useRef<HTMLDivElement>(null);
 
-  // Build auth headers from an EXPLICIT session (avoids stale closure)
+  // ── Auth helpers ─────────────────────────────────────────────────
+
   const buildHeaders = useCallback((s: Session) => ({
     'Authorization': `Bearer ${s.access_token}`,
     'Content-Type': 'application/json',
   }), []);
 
-  // Fetch profile — takes session as argument, never reads stale state
   const fetchProfile = useCallback(async (s: Session) => {
     try {
       setProfileLoading(true);
@@ -62,7 +248,6 @@ export default function App() {
         setSession(null);
         setProfile(null);
       } else if (res.status === 404) {
-        // Profile row not created yet (trigger delay) — show onboarding
         setProfile({ onboarded: false });
       }
     } catch (e) {
@@ -72,7 +257,6 @@ export default function App() {
     }
   }, [buildHeaders]);
 
-  // Fetch billing — takes session as argument
   const fetchBilling = useCallback(async (s: Session) => {
     try {
       const res = await fetch('/billing', { headers: buildHeaders(s) });
@@ -103,7 +287,8 @@ export default function App() {
     }
   }, [buildHeaders]);
 
-  // Auth state listener — single source of truth
+  // ── Auth lifecycle ───────────────────────────────────────────────
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
@@ -115,7 +300,6 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // When session changes, fetch data with the FRESH session
   useEffect(() => {
     if (session) {
       fetchProfile(session);
@@ -128,7 +312,6 @@ export default function App() {
     }
   }, [session, fetchProfile, fetchBilling]);
 
-  // Called by AuthPage after onboarding or demo seeding
   const handleAuthRefresh = useCallback(async () => {
     const { data: { session: s } } = await supabase.auth.getSession();
     if (s) {
@@ -137,67 +320,7 @@ export default function App() {
     }
   }, [fetchProfile, fetchBilling]);
 
-  const handleUpload = async (file: File) => {
-    if (!session) return;
-    setIsProcessing(true);
-    setPipelineStage('uploading');
-    setStatusMsg('Uploading audio...');
-
-    const formData = new FormData();
-    formData.append('file', file, file.name);
-
-    try {
-      setPipelineStage('transcribing');
-      setStatusMsg('Transcribing audio...');
-
-      const res = await fetch('/transcribe', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
-        body: formData,
-      });
-      setPipelineStage('extracting');
-      setStatusMsg('Extracting billing entities...');
-
-      if (!res.ok) {
-        const err = await res.json();
-        const msg = err.detail || 'Processing failed';
-        if (msg.includes('429') || msg.includes('rate limit')) {
-          toast.error('High traffic. Please try again in a moment.');
-        } else {
-          toast.error(msg);
-        }
-      } else {
-        const data = await res.json();
-        // Multi-matter: data.entries is an array, data.confidence is 0-1
-        const entries = data.entries || [data];
-        const confidence = data.confidence;
-
-        // Show confidence in toast
-        const pct = confidence != null ? Math.round(confidence * 100) : null;
-        const confLabel = pct != null
-          ? pct >= 80 ? `High confidence (${pct}%)` : `Review carefully — confidence ${pct}%`
-          : '';
-        toast.success(`Extraction complete — ${entries.length} ${entries.length === 1 ? 'entry' : 'entries'} found. ${confLabel}`);
-
-        // Queue all entries for review, each tagged with its original AI output for audit
-        setPendingReviews(entries.map((e: any) => ({
-          ...e,
-          original_ai_output: { ...e },  // snapshot before human edits
-        })));
-        setConfidence(confidence ?? null);
-        setPipelineStage('done');
-        // Auto-scroll to review form after extraction
-        setTimeout(() => reviewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
-      }
-    } catch {
-      toast.error('Network error. Please check your connection.');
-    } finally {
-      setIsProcessing(false);
-      setStatusMsg('');
-      // Reset pipeline after a beat so the "done" state is visible
-      setTimeout(() => setPipelineStage('idle'), 1500);
-    }
-  };
+  // ── Entry handlers (shared across pages) ─────────────────────────
 
   const handleApproveEntry = async (index: number) => {
     if (!session || !pendingReviews[index]) return;
@@ -219,7 +342,6 @@ export default function App() {
       } else {
         const err = await res.json();
         const msg = err.detail || 'Unknown error';
-        // Never show raw DB errors to the user
         const safeMsg = msg.includes('PGRST') || msg.includes('schema') ? 'Unable to save entry. Please try again.' : msg;
         toast.error(safeMsg);
       }
@@ -292,7 +414,7 @@ export default function App() {
   const totalHours = entries.reduce((a, c) => a + c.duration, 0);
   const totalRevenue = entries.reduce((a, c) => a + c.amount, 0);
 
-  // --- Render ---
+  // ── Render ───────────────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -330,109 +452,56 @@ export default function App() {
     );
   }
 
+  // ── Authenticated app shell ──────────────────────────────────────
+
   return (
     <main className="relative min-h-screen pt-24 px-8 md:px-16 lg:px-24 overflow-x-hidden">
       <Toaster position="top-right" closeButton toastOptions={TOASTER_OPTS} />
 
+      {/* Background pattern */}
       <div className="fixed inset-0 -z-10 pointer-events-none overflow-hidden bg-background">
         <div className="absolute inset-0 topo-pattern opacity-60" />
         <div className="absolute bottom-0 left-0 right-0 h-[40vh] bg-gradient-to-t from-background via-background/60 to-transparent" />
       </div>
 
-      <Navbar userName={profile?.full_name} firmName={profile?.firm_name} onLogout={handleLogout} aiStatus={pipelineStage === "idle" || pipelineStage === "done" ? "ready" : "processing"} />
+      <Navbar
+        userName={profile?.full_name}
+        firmName={profile?.firm_name}
+        onLogout={handleLogout}
+        aiStatus={pipelineStage === "idle" || pipelineStage === "done" ? "ready" : "processing"}
+      />
 
-      <div className="max-w-7xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-1000 relative z-10">
-        <AudioUploader onUpload={handleUpload} isProcessing={isProcessing} statusMsg={statusMsg} pipelineStage={pipelineStage} />
+      <div className="max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-1000 relative z-10">
+        <Routes>
+          {/* Dictate + Review page (default) */}
+          <Route path="/" element={
+            <DictatePage
+              session={session} profile={profile} pipelineStage={pipelineStage}
+              isProcessing={isProcessing} statusMsg={statusMsg} pendingReviews={pendingReviews}
+              confidence={confidence} reviewRef={reviewRef} handleUpload={null}
+              handleApproveEntry={handleApproveEntry} handleApproveAll={handleApproveAll}
+              handleDiscardEntry={handleDiscardEntry} handleUpdateReview={handleUpdateReview}
+              setPipelineStage={setPipelineStage} setIsProcessing={setIsProcessing}
+              setStatusMsg={setStatusMsg} setPendingReviews={setPendingReviews}
+              setConfidence={setConfidence} buildHeaders={buildHeaders}
+              fetchBilling={fetchBilling}
+            />
+          } />
 
-        {/* Multi-matter HITL review cards with confidence */}
-        {pendingReviews.length > 0 && (
-          <div ref={reviewRef} className="max-w-3xl mx-auto space-y-6">
-            {/* Header with confidence badge */}
-            <div className="fluted-glass p-6 flex items-center justify-between">
-              <div>
-                <h2 className="font-headline text-2xl font-light tracking-tight text-primary">
-                  Review Extraction{pendingReviews.length > 1 ? `s (${pendingReviews.length})` : ''}
-                </h2>
-                <p className="text-muted-foreground text-sm mt-1">Verify and edit before saving to your ledger</p>
-              </div>
-              <div className="flex items-center gap-4">
-                {confidence != null && (
-                  <div className={`px-3 py-1.5 text-xs font-medium uppercase tracking-widest border ${
-                    confidence >= 0.8 ? 'border-emerald-300 text-emerald-700 bg-emerald-50' :
-                    confidence >= 0.5 ? 'border-amber-300 text-amber-700 bg-amber-50' :
-                    'border-red-300 text-red-700 bg-red-50'
-                  }`}>
-                    {Math.round(confidence * 100)}% Confidence
-                  </div>
-                )}
-                {pendingReviews.length > 1 && (
-                  <button onClick={handleApproveAll}
-                    className="px-4 py-2 bg-primary text-white text-xs font-headline uppercase tracking-widest hover:bg-primary/90 transition-all">
-                    Approve All
-                  </button>
-                )}
-              </div>
-            </div>
+          {/* Billing ledger + invoice */}
+          <Route path="/ledger" element={
+            <LedgerPage
+              entries={entries}
+              totalHours={totalHours}
+              totalRevenue={totalRevenue}
+              onExport={handleExport}
+              profile={profile}
+            />
+          } />
 
-            {/* Individual review cards */}
-            {pendingReviews.map((review, idx) => (
-              <div key={idx} className="fluted-glass p-8 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                {pendingReviews.length > 1 && (
-                  <div className="flex items-center gap-2 pb-2 border-b border-primary/5">
-                    <span className="text-xs text-muted-foreground uppercase tracking-widest font-medium">
-                      Entry {idx + 1} of {pendingReviews.length}
-                    </span>
-                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Client Name</label>
-                    <input type="text" value={review.client_name}
-                      onChange={(e) => handleUpdateReview(idx, 'client_name', e.target.value)}
-                      className="w-full px-4 py-3 bg-white/50 border border-primary/10 text-primary font-light focus:outline-none focus:border-primary/30 transition-colors" />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Duration</label>
-                    <input type="text" value={review.duration}
-                      onChange={(e) => handleUpdateReview(idx, 'duration', e.target.value)}
-                      className="w-full px-4 py-3 bg-white/50 border border-primary/10 text-primary font-light focus:outline-none focus:border-primary/30 transition-colors" />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Matter Description</label>
-                  <textarea value={review.matter_description}
-                    onChange={(e) => handleUpdateReview(idx, 'matter_description', e.target.value)}
-                    rows={3}
-                    className="w-full px-4 py-3 bg-white/50 border border-primary/10 text-primary font-light focus:outline-none focus:border-primary/30 transition-colors resize-none scrollbar-hide max-h-32 overflow-y-auto" />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs text-muted-foreground uppercase tracking-widest font-medium">Billable Amount (ZAR)</label>
-                  <input type="text" value={review.billable_amount}
-                    onChange={(e) => handleUpdateReview(idx, 'billable_amount', e.target.value)}
-                    className="w-full px-5 py-4 bg-white/50 border border-primary/10 text-primary text-2xl font-headline font-medium tabular-nums focus:outline-none focus:border-primary/30 transition-colors" />
-                </div>
-
-                <div className="flex items-center gap-4 pt-4 border-t border-primary/5">
-                  <button onClick={() => handleApproveEntry(idx)}
-                    className="flex-1 px-8 py-4 bg-primary text-white font-headline text-lg tracking-tight hover:bg-primary/90 transition-all">
-                    Approve & Save
-                  </button>
-                  <button onClick={() => handleDiscardEntry(idx)}
-                    className="px-6 py-4 text-muted-foreground text-sm font-headline tracking-tight hover:text-destructive transition-colors">
-                    Discard
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <ExecutiveMetrics totalHours={totalHours} totalRevenue={totalRevenue} entryCount={entries.length} />
-        <BillingLedger entries={entries} onExport={handleExport} />
+          {/* Catch-all redirects to dictate */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </div>
 
       <footer className="relative z-10 py-12 flex items-center justify-between text-[10px] text-muted-foreground uppercase tracking-[0.3em] font-medium border-t border-primary/5 mt-20">
