@@ -2,12 +2,33 @@ import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Loader2, ArrowRight, Mail, Lock, User, Building2 } from "lucide-react";
 
-interface AuthPageProps {
-  onAuth: () => void;
-  initialMode?: Mode;
-}
+// ── Types ──────────────────────────────────────────────────────────
 
 type Mode = "login" | "signup" | "onboarding";
+
+interface AuthPageProps {
+  onAuth: () => void;                  // called after onboarding/demo to trigger data refresh
+  initialMode?: Mode;                  // App.tsx passes "onboarding" when profile exists but !onboarded
+}
+
+// ── Constants ──────────────────────────────────────────────────────
+
+const DEMO_EMAIL = "demo@lexflow.app";
+const DEMO_PASSWORD = "DemoLexFlow2026!";
+const DEFAULT_RATE = "2500";
+
+// ── Shared CSS ─────────────────────────────────────────────────────
+
+const INPUT_CLASS =
+  "w-full pl-10 pr-4 py-3 bg-background border border-border text-sm font-light focus:outline-none focus:border-primary transition-colors";
+const LABEL_CLASS =
+  "text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-semibold";
+const SUBMIT_CLASS =
+  "w-full py-3 bg-primary text-primary-foreground font-headline text-sm tracking-tight hover:bg-primary/90 transition-all flex items-center justify-center gap-2";
+
+// ====================================================================
+// COMPONENT
+// ====================================================================
 
 export function AuthPage({ onAuth, initialMode = "login" }: AuthPageProps) {
   const [mode, setMode] = useState<Mode>(initialMode);
@@ -16,104 +37,69 @@ export function AuthPage({ onAuth, initialMode = "login" }: AuthPageProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Onboarding fields
+  // Onboarding-specific fields
   const [fullName, setFullName] = useState("");
   const [firmName, setFirmName] = useState("");
-  const [hourlyRate, setHourlyRate] = useState("2500");
+  const [hourlyRate, setHourlyRate] = useState(DEFAULT_RATE);
 
+  // ── Handlers (one per auth action, ordered by user journey) ──────
+
+  /** Sign in with email/password. On success, onAuthStateChange in
+   *  App.tsx detects the new session — we do NOT call onAuth() here
+   *  to avoid a race condition with stale state. */
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      if (error.message.includes("Invalid login")) {
-        setError("Invalid email or password. If you're new, click 'Create one' below.");
-      } else {
-        setError(error.message);
-      }
+
+    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (authError) {
+      setError(
+        authError.message.includes("Invalid login")
+          ? "Invalid email or password. If you're new, click 'Create one' below."
+          : authError.message
+      );
       setLoading(false);
     }
-    // Don't call onAuth() here — supabase.auth.onAuthStateChange() in App.tsx
-    // handles session changes. Calling onAuth() causes a race condition where
-    // fetchProfile() runs with a stale null session.
+    // Success: onAuthStateChange fires -> App.tsx picks up the session
   };
 
-  const handleDemo = async () => {
-    setLoading(true);
-    setError("");
-    const demoEmail = "demo@lexflow.app";
-    const demoPw = "DemoLexFlow2026!";
-    
-    // Try to sign in first (demo account may already exist)
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email: demoEmail, password: demoPw });
-    
-    if (signInError) {
-      // No account yet — create one + onboard
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email: demoEmail, password: demoPw });
-      if (signUpError) {
-        setError("Demo unavailable. Please sign up normally.");
-        setLoading(false);
-        return;
-      }
-      if (!signUpData.session) {
-        await supabase.auth.signInWithPassword({ email: demoEmail, password: demoPw });
-      }
-      // Onboard demo user
-      const { data: { session: s } } = await supabase.auth.getSession();
-      if (s) {
-        await fetch("/profile", {
-          method: "PATCH",
-          headers: { "Authorization": `Bearer ${s.access_token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ full_name: "Demo User", firm_name: "LexFlow Demo Firm", hourly_rate: 2500, onboarded: true }),
-        });
-      }
-    }
-
-    // ALWAYS seed fresh demo data (whether existing or new account)
-    const { data: { session: demoSession } } = await supabase.auth.getSession();
-    if (demoSession) {
-      await fetch("/demo/seed", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${demoSession.access_token}` },
-      });
-    }
-    onAuth();
-  };
-
+  /** Create a new account, auto sign-in, then show onboarding form. */
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-    
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
-    if (signUpError) {
-      if (signUpError.message.includes("already registered")) {
-        setError("This email is already registered. Try signing in instead.");
-        setMode("login");
-      } else {
-        setError(signUpError.message);
-      }
+
+    const { data, error: signUpErr } = await supabase.auth.signUp({ email, password });
+
+    if (signUpErr) {
+      setError(
+        signUpErr.message.includes("already registered")
+          ? "This email is already registered. Try signing in instead."
+          : signUpErr.message
+      );
+      if (signUpErr.message.includes("already registered")) setMode("login");
       setLoading(false);
       return;
     }
 
-    // If no session returned (email confirmation may be on), auto sign-in
-    if (!signUpData.session) {
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-      if (signInError) {
-        setError("Account created but could not auto-sign in. Please sign in manually.");
+    // Supabase may require email confirmation — auto sign-in as fallback
+    if (!data.session) {
+      const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInErr) {
+        setError("Account created but auto sign-in failed. Please sign in manually.");
         setMode("login");
         setLoading(false);
         return;
       }
     }
 
-    // Session exists, go to onboarding
     setMode("onboarding");
     setLoading(false);
   };
 
+  /** Save profile fields (name, firm, rate) then trigger App.tsx data refresh. */
   const handleOnboarding = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -149,19 +135,74 @@ export function AuthPage({ onAuth, initialMode = "login" }: AuthPageProps) {
         return;
       }
 
-      onAuth();
-    } catch (err) {
+      onAuth(); // tell App.tsx to re-fetch profile + billing
+    } catch {
       setError("Network error");
       setLoading(false);
     }
   };
+
+  /** One-click demo: create account if needed, onboard, seed data, refresh. */
+  const handleDemo = async () => {
+    setLoading(true);
+    setError("");
+
+    // Try sign-in first (account may already exist)
+    const { error: signInErr } = await supabase.auth.signInWithPassword({
+      email: DEMO_EMAIL, password: DEMO_PASSWORD,
+    });
+
+    if (signInErr) {
+      // First-time demo — create + onboard
+      const { data, error: signUpErr } = await supabase.auth.signUp({
+        email: DEMO_EMAIL, password: DEMO_PASSWORD,
+      });
+      if (signUpErr) {
+        setError("Demo unavailable. Please sign up normally.");
+        setLoading(false);
+        return;
+      }
+      if (!data.session) {
+        await supabase.auth.signInWithPassword({ email: DEMO_EMAIL, password: DEMO_PASSWORD });
+      }
+
+      // Set demo profile
+      const { data: { session: s } } = await supabase.auth.getSession();
+      if (s) {
+        await fetch("/profile", {
+          method: "PATCH",
+          headers: { "Authorization": `Bearer ${s.access_token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ full_name: "Demo User", firm_name: "LexFlow Demo Firm", hourly_rate: 2500, onboarded: true }),
+        });
+      }
+    }
+
+    // Always seed fresh data (wipes old entries)
+    const { data: { session: demoSession } } = await supabase.auth.getSession();
+    if (demoSession) {
+      await fetch("/demo/seed", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${demoSession.access_token}` },
+      });
+    }
+
+    onAuth(); // tell App.tsx to re-fetch
+  };
+
+  /** Toggle between login and signup modes. */
+  const toggleMode = () => {
+    setMode(mode === "login" ? "signup" : "login");
+    setError("");
+  };
+
+  // ── Render ───────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="absolute inset-0 topo-pattern opacity-30 pointer-events-none" />
 
       <div className="relative w-full max-w-md space-y-8">
-        {/* Logo */}
+        {/* Brand header */}
         <div className="text-center space-y-3">
           <div className="flex items-center justify-center gap-2">
             <span className="font-headline text-3xl font-bold tracking-tighter uppercase text-primary">
@@ -174,7 +215,7 @@ export function AuthPage({ onAuth, initialMode = "login" }: AuthPageProps) {
           </p>
         </div>
 
-        {/* Auth Card */}
+        {/* Auth card */}
         <div className="fluted-glass p-8 space-y-6">
           {error && (
             <div className="p-3 text-sm text-destructive bg-destructive/10 border border-destructive/20">
@@ -183,117 +224,79 @@ export function AuthPage({ onAuth, initialMode = "login" }: AuthPageProps) {
           )}
 
           {mode === "onboarding" ? (
+            /* ── Onboarding form ── */
             <form onSubmit={handleOnboarding} className="space-y-5">
               <p className="text-sm text-muted-foreground font-light">
                 Set your billing rate.
               </p>
 
               <div className="space-y-1">
-                <label className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-semibold">Full Name</label>
+                <label className={LABEL_CLASS}>Full Name</label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <input
-                    type="text"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    required
-                    placeholder="e.g. Full Name"
-                    className="w-full pl-10 pr-4 py-3 bg-background border border-border text-sm font-light focus:outline-none focus:border-primary transition-colors"
-                  />
+                  <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)}
+                    required placeholder="e.g. Full Name" className={INPUT_CLASS} />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-semibold">Firm Name <span className="text-muted-foreground/50">(optional)</span></label>
+                <label className={LABEL_CLASS}>Firm Name <span className="text-muted-foreground/50">(optional)</span></label>
                 <div className="relative">
                   <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <input
-                    type="text"
-                    value={firmName}
-                    onChange={(e) => setFirmName(e.target.value)}
-                    placeholder="e.g. Firm or Practice Name"
-                    className="w-full pl-10 pr-4 py-3 bg-background border border-border text-sm font-light focus:outline-none focus:border-primary transition-colors"
-                  />
+                  <input type="text" value={firmName} onChange={(e) => setFirmName(e.target.value)}
+                    placeholder="e.g. Firm or Practice Name" className={INPUT_CLASS} />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-semibold">Hourly Rate (ZAR)</label>
+                <label className={LABEL_CLASS}>Hourly Rate (ZAR)</label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-muted-foreground">R</span>
-                  <input
-                    type="number"
-                    value={hourlyRate}
-                    onChange={(e) => setHourlyRate(e.target.value)}
-                    required
-                    min="100"
-                    placeholder="2500"
-                    className="w-full pl-10 pr-4 py-3 bg-background border border-border text-sm font-light focus:outline-none focus:border-primary transition-colors"
-                  />
+                  <input type="number" value={hourlyRate} onChange={(e) => setHourlyRate(e.target.value)}
+                    required min="100" placeholder="2500" className={INPUT_CLASS} />
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-1">AI will calculate billable amounts at this rate</p>
               </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3 bg-primary text-primary-foreground font-headline text-sm tracking-tight hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
-              >
+              <button type="submit" disabled={loading} className={SUBMIT_CLASS}>
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
                 {loading ? "Saving..." : "Start Billing"}
               </button>
             </form>
           ) : (
+            /* ── Login / Signup form ── */
             <form onSubmit={mode === "login" ? handleLogin : handleSignup} className="space-y-5">
               <div className="space-y-1">
-                <label className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-semibold">Email</label>
+                <label className={LABEL_CLASS}>Email</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    placeholder="advocate@firm.co.za"
-                    className="w-full pl-10 pr-4 py-3 bg-background border border-border text-sm font-light focus:outline-none focus:border-primary transition-colors"
-                  />
+                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                    required placeholder="advocate@firm.co.za" className={INPUT_CLASS} />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-semibold">Password</label>
+                <label className={LABEL_CLASS}>Password</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={6}
-                    placeholder="Min. 6 characters"
-                    className="w-full pl-10 pr-4 py-3 bg-background border border-border text-sm font-light focus:outline-none focus:border-primary transition-colors"
-                  />
+                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+                    required minLength={6} placeholder="Min. 6 characters" className={INPUT_CLASS} />
                 </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3 bg-primary text-primary-foreground font-headline text-sm tracking-tight hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
-              >
+              <button type="submit" disabled={loading} className={SUBMIT_CLASS}>
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
                 {loading ? "Processing..." : mode === "login" ? "Sign In" : "Create Account"}
               </button>
             </form>
           )}
 
+          {/* Mode toggle + demo button (hidden during onboarding) */}
           {mode !== "onboarding" && (
             <div className="space-y-4">
               <div className="text-center">
-                <button
-                  onClick={() => { setMode(mode === "login" ? "signup" : "login"); setError(""); }}
-                  className="text-xs text-muted-foreground hover:text-primary transition-colors font-medium"
-                >
+                <button onClick={toggleMode}
+                  className="text-xs text-muted-foreground hover:text-primary transition-colors font-medium">
                   {mode === "login" ? "No account? Create one" : "Already have an account? Sign in"}
                 </button>
               </div>
@@ -303,13 +306,9 @@ export function AuthPage({ onAuth, initialMode = "login" }: AuthPageProps) {
                 <div className="relative flex justify-center"><span className="bg-background px-3 text-[10px] text-muted-foreground uppercase tracking-widest">or</span></div>
               </div>
 
-              <button
-                type="button"
-                onClick={handleDemo}
-                disabled={loading}
-                className="w-full py-3 border border-accent/30 text-primary font-headline tracking-tight hover:bg-accent/5 transition-all text-sm"
-              >
-                {loading ? "Loading Demo..." : "Try Demo — No Sign Up Required"}
+              <button type="button" onClick={handleDemo} disabled={loading}
+                className="w-full py-3 border border-accent/30 text-primary font-headline tracking-tight hover:bg-accent/5 transition-all text-sm">
+                {loading ? "Loading Demo..." : "Try Demo \u2014 No Sign Up Required"}
               </button>
             </div>
           )}
