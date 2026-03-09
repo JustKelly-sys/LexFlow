@@ -3,11 +3,7 @@ import { MetricsStrip } from "@/components/lexflow/MetricsStrip";
 import { formatZAR } from "@/lib/formatters";
 import { ShieldCheck, AlertTriangle, CheckCircle2, XCircle, FileText } from "lucide-react";
 import type { BillingEntry } from "@/components/lexflow/BillingLedger";
-
-interface UserProfile {
-  full_name?: string;
-  firm_name?: string;
-}
+import type { UserProfile } from "@/lib/types";
 
 interface FicaPageProps {
   entries: BillingEntry[];

@@ -5,10 +5,11 @@ import { WaveformVisualizer } from "@/components/lexflow/WaveformVisualizer";
 import { Mic, Square, Pause, Play, Upload, Check, Lightbulb } from "lucide-react";
 import { toast } from "sonner";
 import type { Session } from "@supabase/supabase-js";
+import type { PendingReview, ExtractedEntry } from "@/lib/types";
 
 interface DictationPageProps {
   session: Session;
-  onEntryExtracted: (entries: any[], confidence: number | null) => void;
+  onEntryExtracted: (entries: PendingReview[], confidence: number | null) => void;
 }
 
 export function DictationPage({ session, onEntryExtracted }: DictationPageProps) {
@@ -19,10 +20,10 @@ export function DictationPage({ session, onEntryExtracted }: DictationPageProps)
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [transcript, setTranscript] = useState("");
   const [liveTranscript, setLiveTranscript] = useState("");
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<{ start: () => void; stop: () => void; onresult: ((e: { results: ArrayLike<{ item: (n: number) => { transcript: string } }> }) => void) | null; onerror: (() => void) | null } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [pipelineStage, setPipelineStage] = useState<'idle' | 'transcribing' | 'extracting' | 'done'>('idle');
-  const [extractedEntry, setExtractedEntry] = useState<any>(null);
+  const [extractedEntry, setExtractedEntry] = useState<ExtractedEntry | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -54,6 +55,12 @@ export function DictationPage({ session, onEntryExtracted }: DictationPageProps)
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       recorder.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        // Don't auto-send if recording is too short (likely silence/accidental)
+        if (blob.size < 1000) {
+          toast.info('Recording too short. Try again with a longer dictation.');
+          setPipelineStage('idle');
+          return;
+        }
         processAudio(new File([blob], 'dictation.webm', { type: 'audio/webm' }));
       };
       recorder.start(1000);
@@ -66,13 +73,13 @@ export function DictationPage({ session, onEntryExtracted }: DictationPageProps)
       setLiveTranscript("");
       // Start Web Speech API for live preview
       try {
-        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        const SpeechRecognition = ((window as unknown as Record<string, unknown>).SpeechRecognition || (window as unknown as Record<string, unknown>).webkitSpeechRecognition) as { new(): { start: () => void; stop: () => void; continuous: boolean; interimResults: boolean; onresult: ((e: { results: ArrayLike<{ item: (n: number) => { transcript: string } }> }) => void) | null; onerror: (() => void) | null } } | undefined;
         if (SpeechRecognition) {
           const recognition = new SpeechRecognition();
           recognition.continuous = true;
           recognition.interimResults = true;
           recognition.lang = 'en-ZA';
-          recognition.onresult = (event: any) => {
+          recognition.onresult = (event: { results: { length: number; [index: number]: { [index: number]: { transcript: string } } } }) => {
             let text = '';
             for (let i = 0; i < event.results.length; i++) {
               text += event.results[i][0].transcript;
@@ -140,7 +147,13 @@ export function DictationPage({ session, onEntryExtracted }: DictationPageProps)
       if (!res.ok) {
         const err = await res.json();
         const msg = err.detail || 'Processing failed';
-        toast.error(msg.includes('429') || msg.includes('rate limit') ? 'High traffic. Please try again in a moment.' : msg);
+        if (msg.includes('429') || msg.includes('rate limit')) {
+          toast.error('High traffic. Please try again in a moment.');
+        } else if (msg.includes('FAILED_PRECONDITION') || msg.includes('not in an ACTIVE state')) {
+          toast.error('Audio processing failed. Please try recording again.');
+        } else {
+          toast.error(msg);
+        }
         setPipelineStage('idle');
       } else {
         const data = await res.json();
@@ -155,7 +168,7 @@ export function DictationPage({ session, onEntryExtracted }: DictationPageProps)
         setPipelineStage('done');
 
         // Pass to parent for review navigation
-        onEntryExtracted(entries.map((e: any) => ({ ...e, original_ai_output: { ...e } })), conf ?? null);
+        onEntryExtracted(entries.map((e: Record<string, string>) => ({ ...e, original_ai_output: { ...e } })), conf ?? null);
       }
     } catch {
       toast.error('Network error. Please check your connection.');
@@ -166,9 +179,9 @@ export function DictationPage({ session, onEntryExtracted }: DictationPageProps)
   };
 
   const statusSteps = [
-    { key: 'transcribing', label: 'Client detection', done: pipelineStage === 'extracting' || pipelineStage === 'done', active: pipelineStage === 'transcribing' },
-    { key: 'extracting', label: 'Matter classification', done: pipelineStage === 'done', active: pipelineStage === 'extracting' },
-    { key: 'done', label: 'Description generation', done: pipelineStage === 'done', active: false },
+    { key: 'transcribing', label: 'Audio transcription', done: pipelineStage === 'extracting' || pipelineStage === 'done', active: pipelineStage === 'transcribing' },
+    { key: 'extracting', label: 'Billing extraction', done: pipelineStage === 'done', active: pipelineStage === 'extracting' },
+    { key: 'done', label: 'Entry generation', done: pipelineStage === 'done', active: false },
   ];
 
   return (

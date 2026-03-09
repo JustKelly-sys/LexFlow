@@ -6,13 +6,14 @@ import { BillingEntry } from "@/components/lexflow/BillingLedger";
 import { formatZAR } from "@/lib/formatters";
 import { toast } from "sonner";
 import type { Session } from "@supabase/supabase-js";
+import type { PendingReview } from "@/lib/types";
 
 interface DashboardPageProps {
   entries: BillingEntry[];
   totalHours: number;
   totalRevenue: number;
   session: Session;
-  onUploadComplete: (entries: any[], confidence: number | null) => void;
+  onUploadComplete: (entries: PendingReview[], confidence: number | null) => void;
 }
 
 export function DashboardPage({ entries, totalHours, totalRevenue, session, onUploadComplete }: DashboardPageProps) {
@@ -48,7 +49,7 @@ export function DashboardPage({ entries, totalHours, totalRevenue, session, onUp
         const extracted = data.entries || [data];
         const conf = data.confidence;
         toast.success(`Extraction complete \u2014 ${extracted.length} ${extracted.length === 1 ? 'entry' : 'entries'} found.`);
-        onUploadComplete(extracted.map((en: any) => ({ ...en, original_ai_output: { ...en } })), conf ?? null);
+        onUploadComplete(extracted.map((en: Record<string, string>) => ({ ...en, original_ai_output: { ...en } })), conf ?? null);
         navigate('/review');
       }
     } catch {
@@ -66,7 +67,7 @@ export function DashboardPage({ entries, totalHours, totalRevenue, session, onUp
         { label: "Total Billable", value: formatZAR(totalRevenue) },
         { label: "Total Hours", value: totalHours.toFixed(1), unit: "hrs" },
         { label: "Matters Handled", value: entries.length },
-        { label: "Compliance Score", value: "98%", accent: true },
+        { label: "Data Quality", value: entries.length > 0 ? `${Math.round((entries.filter(e => e.clientName && e.clientName !== "Unknown" && e.matterDescription.length > 10 && e.duration > 0 && e.amount > 0).length / entries.length) * 100)}%` : "N/A", accent: true },
       ]} />
 
       {/* Primary CTAs — differentiated */}

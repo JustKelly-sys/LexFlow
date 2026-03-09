@@ -210,5 +210,100 @@ class TestCSVExport:
 class TestCORS:
     def test_cors(self, client):
         r = client.options("/transcribe", headers={
-            "Origin": "http://localhost:3000", "Access-Control-Request-Method": "POST"})
+            "Origin": "http://localhost:8000", "Access-Control-Request-Method": "POST"})
         assert "access-control-allow-origin" in r.headers
+
+
+# ====================================================================
+# 7. DELETE ENDPOINT
+# ====================================================================
+
+class TestDeleteEndpoint:
+    def test_delete_success(self, authed_client):
+        """DELETE /billing/:id should return 200 when entry exists and belongs to user."""
+        with _make_httpx_mock(delete=_resp(204)):
+            r = authed_client.delete("/billing/some-uuid-123")
+        assert r.status_code == 200
+        assert r.json()["status"] == "deleted"
+
+    def test_delete_not_found(self, authed_client):
+        """DELETE /billing/:id should return 404 when entry doesn't exist."""
+        with _make_httpx_mock(delete=_resp(404)):
+            r = authed_client.delete("/billing/nonexistent-id")
+        assert r.status_code == 404
+
+    def test_delete_requires_auth(self, client):
+        """DELETE /billing/:id should require authentication."""
+        r = client.delete("/billing/some-uuid-123")
+        assert r.status_code in (401, 403)
+
+
+# ====================================================================
+# 8. INPUT VALIDATION
+# ====================================================================
+
+class TestInputValidation:
+    def test_rejects_oversized_field(self, authed_client):
+        """POST /billing should reject fields exceeding 2000 chars."""
+        r = authed_client.post("/billing", json={
+            "client_name": "A" * 2001,
+            "matter_description": "NDA",
+            "duration": "2h",
+            "billable_amount": "R5000",
+        })
+        assert r.status_code == 400
+        assert "exceeds maximum length" in r.json()["detail"]
+
+    def test_rejects_empty_field(self, authed_client):
+        """POST /billing should reject empty or whitespace-only fields."""
+        r = authed_client.post("/billing", json={
+            "client_name": "   ",
+            "matter_description": "NDA",
+            "duration": "2h",
+            "billable_amount": "R5000",
+        })
+        assert r.status_code == 400
+        assert "cannot be empty" in r.json()["detail"]
+
+    def test_accepts_valid_fields(self, authed_client):
+        """POST /billing should accept properly-sized fields."""
+        with _make_httpx_mock(post=_resp(201, [{"id": "1"}])):
+            r = authed_client.post("/billing", json={
+                "client_name": "Valid Client",
+                "matter_description": "Valid matter",
+                "duration": "1.5h",
+                "billable_amount": "R3750",
+            })
+        assert r.status_code == 200
+
+
+# ====================================================================
+# 9. CORS CONFIGURATION
+# ====================================================================
+
+class TestCORSConfig:
+    def test_allowed_origin_localhost(self, client):
+        """CORS should allow requests from localhost:8000."""
+        r = client.options("/billing", headers={
+            "Origin": "http://localhost:8000",
+            "Access-Control-Request-Method": "GET",
+        })
+        assert r.headers.get("access-control-allow-origin") == "http://localhost:8000"
+
+    def test_allowed_origin_render(self, client):
+        """CORS should allow requests from the Render deployment."""
+        r = client.options("/billing", headers={
+            "Origin": "https://lexflow-dwa0.onrender.com",
+            "Access-Control-Request-Method": "POST",
+        })
+        assert r.headers.get("access-control-allow-origin") == "https://lexflow-dwa0.onrender.com"
+
+    def test_disallowed_origin(self, client):
+        """CORS should NOT allow requests from arbitrary origins."""
+        r = client.options("/billing", headers={
+            "Origin": "https://evil-site.com",
+            "Access-Control-Request-Method": "GET",
+        })
+        # FastAPI CORS middleware won't set the header for disallowed origins
+        origin = r.headers.get("access-control-allow-origin")
+        assert origin is None or origin != "https://evil-site.com"

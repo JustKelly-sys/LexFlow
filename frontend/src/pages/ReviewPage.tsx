@@ -2,14 +2,7 @@ import { Navigate } from "react-router-dom";
 import { Breadcrumb } from "@/components/lexflow/Breadcrumb";
 import { Check, ChevronLeft, ChevronRight, X } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
-
-interface PendingReview {
-  client_name: string;
-  matter_description: string;
-  duration: string;
-  billable_amount: string;
-  original_ai_output?: Record<string, string>;
-}
+import type { PendingReview } from "@/lib/types";
 
 interface ReviewPageProps {
   session: Session;

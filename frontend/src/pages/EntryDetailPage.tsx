@@ -5,12 +5,7 @@ import { formatZAR, formatDuration } from "@/lib/formatters";
 import { Pencil, Trash2, ArrowLeft, Check, X } from "lucide-react";
 import type { BillingEntry } from "@/components/lexflow/BillingLedger";
 import { toast } from "sonner";
-
-interface UserProfile {
-  full_name?: string;
-  firm_name?: string;
-  hourly_rate?: number;
-}
+import type { UserProfile } from "@/lib/types";
 
 interface EntryDetailPageProps {
   entries: BillingEntry[];

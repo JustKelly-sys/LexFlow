@@ -13,23 +13,8 @@ import { LedgerPage } from '@/pages/LedgerPage';
 import { FicaPage } from '@/pages/FicaPage';
 import { Toaster, toast } from 'sonner';
 import type { Session } from '@supabase/supabase-js';
+import type { UserProfile, PendingReview } from '@/lib/types';
 
-// ── Types ──────────────────────────────────────────────────────────
-
-interface UserProfile {
-  full_name?: string;
-  firm_name?: string;
-  hourly_rate?: number;
-  onboarded?: boolean;
-}
-
-interface PendingReview {
-  client_name: string;
-  matter_description: string;
-  duration: string;
-  billable_amount: string;
-  original_ai_output?: Record<string, string>;
-}
 
 // ── Toast config ───────────────────────────────────────────────────
 

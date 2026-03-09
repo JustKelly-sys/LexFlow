@@ -3,13 +3,7 @@ import { MetricsStrip } from "@/components/lexflow/MetricsStrip";
 import { BillingLedger, type BillingEntry } from "@/components/lexflow/BillingLedger";
 import { InvoiceGenerator } from "@/components/lexflow/InvoiceGenerator";
 import { formatZAR } from "@/lib/formatters";
-
-interface UserProfile {
-  full_name?: string;
-  firm_name?: string;
-  hourly_rate?: number;
-  onboarded?: boolean;
-}
+import type { UserProfile } from "@/lib/types";
 
 interface LedgerPageProps {
   entries: BillingEntry[];
