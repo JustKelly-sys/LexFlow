@@ -207,7 +207,7 @@ export default function App() {
     return (
       <>
         <Toaster position="top-right" closeButton toastOptions={TOASTER_OPTS} />
-        <WhatsAppLinkPage session={session} />
+        <WhatsAppLinkPage session={session} code={linkCode} onAuth={handleAuthRefresh} />
       </>
     );
   }
