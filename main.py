@@ -135,7 +135,10 @@ class TranscriptionResult(BaseModel):
 
 def _extract_billing(client: genai.Client, audio_ref, model: str, prompt: str) -> TranscriptionResult:
     """Call Gemini with structured output. Returns multiple entries + confidence.
-    Retries on 429 with exponential backoff."""
+    Retries on 429 with exponential backoff.
+
+    WARNING: This function uses blocking time.sleep() for retry delays.
+    It MUST be called via asyncio.to_thread() - never directly from async context."""
     last_err = None
     for attempt in range(MAX_RETRIES):
         try:
@@ -292,7 +295,7 @@ async def save_billing_entry(request: Request, user: dict = Depends(get_current_
         )
     if res.status_code not in (200, 201):
         raise HTTPException(500, f"Failed to save: {res.text}")
-    return JSONResponse(content={"status": "saved"})
+    return JSONResponse(content={"status": "saved"}, status_code=201)
 
 
 @app.get("/billing")
@@ -371,8 +374,12 @@ async def update_profile(request: Request, user: dict = Depends(get_current_user
         )
     if res.status_code not in (200, 204):
         raise HTTPException(500, f"Failed to update profile: {res.text}")
-    if res.text and res.json():
-        return JSONResponse(content=res.json()[0])
+    try:
+        data = res.json() if res.text else None
+        if data:
+            return JSONResponse(content=data[0])
+    except (ValueError, IndexError):
+        pass
     return JSONResponse(content={"status": "updated"})
 
 

@@ -171,7 +171,7 @@ class TestBillingEndpoints:
                 "client_name": "John", "matter_description": "NDA",
                 "duration": "2h", "billable_amount": "R5000",
             })
-        assert r.status_code == 200 and r.json()["status"] == "saved"
+        assert r.status_code == 201 and r.json()["status"] == "saved"
 
     def test_get_empty(self, authed_client):
         with _make_httpx_mock(get=_resp(200, [])):
@@ -277,7 +277,7 @@ class TestInputValidation:
                 "duration": "1.5h",
                 "billable_amount": "R3750",
             })
-        assert r.status_code == 200
+        assert r.status_code == 201
 
 
 # ====================================================================
