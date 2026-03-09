@@ -557,16 +557,15 @@ async def _wa_save_billing(wa_user: dict, entry_data: dict):
     """Save an approved WhatsApp billing entry to billing_entries."""
     user_id = wa_user.get("user_id")
     row = {
-        "user_id": user_id,
         "client_name": entry_data.get("client_name", "Unknown"),
         "matter_description": entry_data.get("matter_description", ""),
         "duration": entry_data.get("duration", "0h"),
         "billable_amount": entry_data.get("billable_amount", "R0"),
         "source": "whatsapp",
     }
-    if not user_id:
-        # No linked web account — store under phone-based identifier
-        row["user_id"] = wa_user.get("id")
+    # Only set user_id if linked to a real Supabase auth account
+    if user_id:
+        row["user_id"] = user_id
 
     async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
         res = await client.post(
@@ -574,7 +573,9 @@ async def _wa_save_billing(wa_user: dict, entry_data: dict):
             headers=_service_headers(),
             json=row,
         )
-    return res.status_code in (200, 201)
+        if res.status_code not in (200, 201):
+            print(f"[WA] Save failed: {res.status_code} {res.text}")
+        return res.status_code in (200, 201)
 
 
 async def _wa_process_voice_note(phone: str, media_id: str):
