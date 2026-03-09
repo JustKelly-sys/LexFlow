@@ -792,6 +792,54 @@ async def receive_webhook(request: Request, bg: BackgroundTasks):
     return {"status": "ok"}
 
 
+
+
+@app.post("/whatsapp/link")
+async def link_whatsapp(request: Request, user: dict = Depends(get_current_user)):
+    """Link a WhatsApp number to a web account using a link code."""
+    body = await request.json()
+    code = body.get("code", "").strip().upper()
+    if not code:
+        raise HTTPException(400, "Missing link code")
+
+    async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
+        # Find WhatsApp user by link code
+        res = await client.get(
+            _rest_url(f"whatsapp_users?link_code=eq.{code}&select=*"),
+            headers=_service_headers(),
+        )
+        rows = res.json() if res.status_code == 200 else []
+        if not rows:
+            raise HTTPException(404, "Invalid link code")
+
+        wa_user = rows[0]
+        if wa_user.get("user_id") and wa_user["user_id"] != user["id"]:
+            raise HTTPException(409, "This WhatsApp number is already linked to another account")
+
+        # Link: set user_id on whatsapp_users
+        await client.patch(
+            _rest_url(f"whatsapp_users?link_code=eq.{code}"),
+            headers=_service_headers(),
+            json={"user_id": user["id"]},
+        )
+
+        # Retroactively claim any unlinked WhatsApp billing entries from this phone
+        phone = wa_user["phone"]
+        # Find entries saved without user_id that came from this WhatsApp session
+        unlinked = await client.get(
+            _rest_url("billing_entries?user_id=is.null&source=eq.whatsapp&select=id"),
+            headers=_service_headers(),
+        )
+        if unlinked.status_code == 200 and unlinked.json():
+            for entry in unlinked.json():
+                await client.patch(
+                    _rest_url(f"billing_entries?id=eq.{entry['id']}"),
+                    headers=_service_headers(),
+                    json={"user_id": user["id"]},
+                )
+
+    return JSONResponse(content={"status": "linked", "phone": wa_user["phone"]})
+
 # ====================================================================
 # 8. STATIC FRONTEND SERVING — catch-all, registered LAST
 # ====================================================================

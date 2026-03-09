@@ -11,6 +11,7 @@ import { ReviewPage } from '@/pages/ReviewPage';
 import { EntryDetailPage } from '@/pages/EntryDetailPage';
 import { LedgerPage } from '@/pages/LedgerPage';
 import { FicaPage } from '@/pages/FicaPage';
+import { WhatsAppLinkPage } from '@/pages/WhatsAppLinkPage';
 import { Toaster, toast } from 'sonner';
 import type { Session } from '@supabase/supabase-js';
 import type { UserProfile, PendingReview } from '@/lib/types';
@@ -199,6 +200,17 @@ export default function App() {
 
   const totalHours = entries.reduce((a, c) => a + c.duration, 0);
   const totalRevenue = entries.reduce((a, c) => a + c.amount, 0);
+
+  // ── WhatsApp link page (works before and after auth) ───────────
+  if (window.location.pathname.startsWith('/whatsapp/link/')) {
+    const linkCode = window.location.pathname.split('/whatsapp/link/')[1];
+    return (
+      <>
+        <Toaster position="top-right" closeButton toastOptions={TOASTER_OPTS} />
+        <WhatsAppLinkPage session={session} />
+      </>
+    );
+  }
 
   // ── Auth gates ──────────────────────────────────────────────────
 
