@@ -2,7 +2,7 @@ services:
   - type: web
     name: lexflow
     runtime: python
-    buildCommand: npm --prefix frontend install && npm --prefix frontend run build && pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt && npm --prefix frontend install && npm --prefix frontend run build
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: GOOGLE_API_KEY
@@ -15,4 +15,6 @@ services:
         value: gemini-2.0-flash
       - key: NODE_VERSION
         value: '20'
+      - key: PYTHON_VERSION
+        value: '3.12.3'
     plan: free
