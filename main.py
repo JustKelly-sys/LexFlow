@@ -1,11 +1,11 @@
 """
 LexFlow — Billing Intelligence Platform
 
-Converts attorney voice dictations into structured billing entries
+Converts voice dictations into structured billing entries for legal professionals
 using Google Gemini AI. Supabase handles auth (JWT) and data (Postgres + RLS).
 
 Author: Tshepiso Jafta
-Version: 3.1
+Version: 4.0 — WhatsApp integration
 """
 
 # ── stdlib ──────────────────────────────────────────────────────────
@@ -21,9 +21,9 @@ import asyncio
 # ── third-party ─────────────────────────────────────────────────────
 import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile, Depends
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, Request, UploadFile, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from google import genai
 from pydantic import BaseModel
@@ -47,6 +47,12 @@ RETRY_BASE_DELAY   = 5          # seconds — doubles each attempt
 DEMO_EMAIL         = "demo@lexflow.app"
 DEFAULT_RATE       = 2500       # ZAR/hr fallback when profile has no rate
 HTTP_TIMEOUT       = 15.0       # seconds for all Supabase REST calls
+
+# WhatsApp Cloud API
+WHATSAPP_TOKEN      = os.getenv("WHATSAPP_TOKEN")
+WHATSAPP_PHONE_ID   = os.getenv("WHATSAPP_PHONE_ID")
+WEBHOOK_VERIFY_TOKEN = os.getenv("WEBHOOK_VERIFY_TOKEN", "lexflow-verify-2026")
+GRAPH_API_URL       = "https://graph.facebook.com/v21.0"
 
 if not API_KEY:
     print("WARNING: GOOGLE_API_KEY not set — /transcribe will fail.")
@@ -453,6 +459,336 @@ async def seed_demo_data(user: dict = Depends(get_current_user)):
                 json={"user_id": user["id"], **entry},
             )
     return JSONResponse(content={"status": "demo_seeded", "entries": len(DEMO_ENTRIES)})
+
+
+
+
+# ====================================================================
+# 7B. WHATSAPP — voice note intake via Meta Cloud API
+# ====================================================================
+
+# ── WhatsApp helpers ────────────────────────────────────────────────
+
+async def _wa_send(phone: str, text: str):
+    """Send a WhatsApp text message via Cloud API."""
+    if not WHATSAPP_TOKEN or not WHATSAPP_PHONE_ID:
+        print("[WA] WhatsApp not configured — skipping send")
+        return
+    async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
+        await client.post(
+            f"{GRAPH_API_URL}/{WHATSAPP_PHONE_ID}/messages",
+            headers={"Authorization": f"Bearer {WHATSAPP_TOKEN}", "Content-Type": "application/json"},
+            json={
+                "messaging_product": "whatsapp",
+                "to": phone,
+                "type": "text",
+                "text": {"body": text},
+            },
+        )
+
+
+async def _wa_download_audio(media_id: str) -> str | None:
+    """Download a WhatsApp voice note to a temp file. Returns path or None."""
+    if not WHATSAPP_TOKEN:
+        return None
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        # Step 1: Get download URL from media ID
+        meta = await client.get(
+            f"{GRAPH_API_URL}/{media_id}",
+            headers={"Authorization": f"Bearer {WHATSAPP_TOKEN}"},
+        )
+        if meta.status_code != 200:
+            print(f"[WA] Failed to get media URL: {meta.status_code}")
+            return None
+        dl_url = meta.json().get("url")
+        if not dl_url:
+            return None
+
+        # Step 2: Download the actual audio
+        audio = await client.get(dl_url, headers={"Authorization": f"Bearer {WHATSAPP_TOKEN}"})
+        if audio.status_code != 200:
+            print(f"[WA] Failed to download audio: {audio.status_code}")
+            return None
+
+        # Save to temp file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".ogg") as tmp:
+            tmp.write(audio.content)
+            return tmp.name
+
+
+async def _wa_get_or_create_user(phone: str) -> dict:
+    """Get or create a WhatsApp user record in Supabase."""
+    async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
+        # Check if user exists
+        res = await client.get(
+            _rest_url(f"whatsapp_users?phone=eq.{phone}&select=*"),
+            headers=_service_headers(),
+        )
+        rows = res.json() if res.status_code == 200 else []
+        if rows:
+            return rows[0]
+
+        # Create new user
+        import secrets
+        link_code = secrets.token_urlsafe(6)[:8].upper()
+        new_user = {"phone": phone, "state": "NEW", "hourly_rate": 2500, "link_code": link_code}
+        res = await client.post(
+            _rest_url("whatsapp_users"),
+            headers=_service_headers(),
+            json=new_user,
+        )
+        if res.status_code in (200, 201):
+            return res.json()[0]
+        print(f"[WA] Failed to create user: {res.status_code} {res.text}")
+        return new_user
+
+
+async def _wa_update_user(phone: str, updates: dict):
+    """Update a WhatsApp user's state/rate/pending entry."""
+    async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
+        await client.patch(
+            _rest_url(f"whatsapp_users?phone=eq.{phone}"),
+            headers=_service_headers(),
+            json=updates,
+        )
+
+
+async def _wa_save_billing(wa_user: dict, entry_data: dict):
+    """Save an approved WhatsApp billing entry to billing_entries."""
+    user_id = wa_user.get("user_id")
+    row = {
+        "user_id": user_id,
+        "client_name": entry_data.get("client_name", "Unknown"),
+        "matter_description": entry_data.get("matter_description", ""),
+        "duration": entry_data.get("duration", "0h"),
+        "billable_amount": entry_data.get("billable_amount", "R0"),
+        "source": "whatsapp",
+    }
+    if not user_id:
+        # No linked web account — store under phone-based identifier
+        row["user_id"] = wa_user.get("id")
+
+    async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
+        res = await client.post(
+            _rest_url("billing_entries"),
+            headers=_service_headers(),
+            json=row,
+        )
+    return res.status_code in (200, 201)
+
+
+async def _wa_process_voice_note(phone: str, media_id: str):
+    """Background task: download audio → Gemini extract → reply with summary."""
+    wa_user = await _wa_get_or_create_user(phone)
+    hourly_rate = wa_user.get("hourly_rate", DEFAULT_RATE)
+
+    await _wa_send(phone, "⏳ Processing your voice note...")
+
+    tmp_path = await _wa_download_audio(media_id)
+    if not tmp_path:
+        await _wa_send(phone, "❌ Failed to download your voice note. Please try again.")
+        return
+
+    uploaded = None
+    try:
+        gemini = genai.Client(api_key=API_KEY)
+        uploaded = await asyncio.to_thread(gemini.files.upload, file=tmp_path)
+        result = await asyncio.to_thread(
+            _extract_billing, gemini, uploaded, MODEL_NAME, _build_prompt(hourly_rate)
+        )
+
+        if not result.entries:
+            await _wa_send(phone, "🤔 I couldn't extract any billing data from that voice note. Please try again with a clearer recording.")
+            await _wa_update_user(phone, {"state": "READY"})
+            return
+
+        # Use first entry for approval flow
+        entry = result.entries[0]
+        summary = (
+            f"📋 Extracted from your voice note:\n\n"
+            f"*Client:* {entry.client_name}\n"
+            f"*Matter:* {entry.matter_description}\n"
+            f"*Duration:* {entry.duration}\n"
+            f"*Amount:* {entry.billable_amount}\n\n"
+            f"Reply:\n"
+            f"✅ *YES* — Save to ledger\n"
+            f"❌ *NO* — Discard\n"
+            f"✏️ *EDIT* — Open on web to modify"
+        )
+        await _wa_send(phone, summary)
+        await _wa_update_user(phone, {
+            "state": "AWAITING_APPROVAL",
+            "pending_entry": entry.model_dump(),
+        })
+
+    except Exception as e:
+        print(f"[WA] Processing failed for {phone}: {e}")
+        await _wa_send(phone, "❌ Something went wrong processing your voice note. Please try again.")
+        await _wa_update_user(phone, {"state": "READY"})
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.remove(tmp_path)
+        if uploaded:
+            try:
+                await asyncio.to_thread(gemini.files.delete, name=uploaded.name)
+            except Exception:
+                pass
+
+
+# ── WhatsApp webhook endpoints ──────────────────────────────────────
+
+@app.get("/webhook")
+async def verify_webhook(
+    mode: str = Query(None, alias="hub.mode"),
+    token: str = Query(None, alias="hub.verify_token"),
+    challenge: str = Query(None, alias="hub.challenge"),
+):
+    """Meta sends this GET to verify the webhook URL during setup."""
+    if mode == "subscribe" and token == WEBHOOK_VERIFY_TOKEN:
+        print(f"[WA] Webhook verified")
+        return PlainTextResponse(content=challenge, status_code=200)
+    raise HTTPException(403, "Webhook verification failed")
+
+
+@app.post("/webhook")
+async def receive_webhook(request: Request, bg: BackgroundTasks):
+    """Receive incoming WhatsApp messages. Must return 200 immediately."""
+    body = await request.json()
+
+    # Extract message data from Meta's nested payload
+    try:
+        entry = body["entry"][0]
+        changes = entry["changes"][0]
+        value = changes["value"]
+        messages = value.get("messages", [])
+    except (KeyError, IndexError):
+        return {"status": "ok"}  # Not a message event — ignore
+
+    for msg in messages:
+        phone = msg.get("from", "")
+        msg_type = msg.get("type", "")
+
+        if msg_type == "audio":
+            # Voice note received
+            media_id = msg["audio"]["id"]
+            wa_user = await _wa_get_or_create_user(phone)
+
+            if wa_user["state"] == "NEW":
+                # First interaction — send welcome, ask for rate
+                welcome = (
+                    "👋 Welcome to *LexFlow* — voice-to-billing for legal professionals.\n\n"
+                    "Here's how it works:\n"
+                    "1. Send me a voice note describing your billable work\n"
+                    "2. I'll extract the client name, matter, duration, and amount\n"
+                    "3. You approve, and it's saved to your billing ledger\n\n"
+                    "To get started, what's your hourly billing rate in ZAR?\n"
+                    "Just type a number (e.g. 3500)"
+                )
+                await _wa_send(phone, welcome)
+                await _wa_update_user(phone, {"state": "AWAITING_RATE"})
+
+            elif wa_user["state"] == "AWAITING_RATE":
+                await _wa_send(phone, "Please set your hourly rate first. Just type a number (e.g. 3500)")
+
+            else:
+                # READY or AWAITING_APPROVAL — process the voice note
+                bg.add_task(_wa_process_voice_note, phone, media_id)
+
+        elif msg_type == "text":
+            text = msg.get("text", {}).get("body", "").strip()
+            wa_user = await _wa_get_or_create_user(phone)
+
+            if wa_user["state"] == "NEW":
+                # First text message — send welcome
+                welcome = (
+                    "👋 Welcome to *LexFlow* — voice-to-billing for legal professionals.\n\n"
+                    "Here's how it works:\n"
+                    "1. Send me a voice note describing your billable work\n"
+                    "2. I'll extract the client name, matter, duration, and amount\n"
+                    "3. You approve, and it's saved to your billing ledger\n\n"
+                    "To get started, what's your hourly billing rate in ZAR?\n"
+                    "Just type a number (e.g. 3500)"
+                )
+                await _wa_send(phone, welcome)
+                await _wa_update_user(phone, {"state": "AWAITING_RATE"})
+
+            elif wa_user["state"] == "AWAITING_RATE":
+                # Expecting a number
+                cleaned = text.replace("R", "").replace("r", "").replace(",", "").replace(" ", "").strip()
+                if cleaned.isdigit() and int(cleaned) > 0:
+                    rate = int(cleaned)
+                    await _wa_update_user(phone, {"hourly_rate": rate, "state": "READY"})
+                    await _wa_send(phone, (
+                        f"✅ Rate set to R{rate:,}/hr.\n"
+                        f"Send me a voice note and I'll extract your billing entry!\n\n"
+                        f"Commands:\n"
+                        f"🎤 Voice note — extract billing\n"
+                        f"RATE 4000 — update your rate\n"
+                        f"LINK — connect to web dashboard\n"
+                        f"HELP — show this menu"
+                    ))
+                else:
+                    await _wa_send(phone, "Please type a valid number for your hourly rate (e.g. 3500)")
+
+            elif wa_user["state"] == "AWAITING_APPROVAL":
+                upper = text.upper().strip()
+                if upper == "YES":
+                    pending = wa_user.get("pending_entry")
+                    if pending:
+                        ok = await _wa_save_billing(wa_user, pending)
+                        if ok:
+                            await _wa_send(phone, "✅ Saved! View your ledger: https://lexflow-dwa0.onrender.com")
+                        else:
+                            await _wa_send(phone, "❌ Failed to save. Please try again.")
+                    else:
+                        await _wa_send(phone, "No pending entry found. Send a new voice note.")
+                    await _wa_update_user(phone, {"state": "READY", "pending_entry": None})
+
+                elif upper == "NO":
+                    await _wa_send(phone, "❌ Discarded. Send another voice note when ready.")
+                    await _wa_update_user(phone, {"state": "READY", "pending_entry": None})
+
+                elif upper == "EDIT":
+                    await _wa_send(phone, "✏️ Edit on web: https://lexflow-dwa0.onrender.com/review\nLog in to review and modify the entry.")
+                    await _wa_update_user(phone, {"state": "READY"})
+
+                else:
+                    await _wa_send(phone, "Reply *YES* to save, *NO* to discard, or *EDIT* to modify on web.")
+
+            elif wa_user["state"] == "READY":
+                upper = text.upper().strip()
+
+                if upper.startswith("RATE"):
+                    parts = upper.replace("RATE", "").strip().replace("R", "").replace(",", "")
+                    if parts.isdigit() and int(parts) > 0:
+                        rate = int(parts)
+                        await _wa_update_user(phone, {"hourly_rate": rate})
+                        await _wa_send(phone, f"✅ Rate updated to R{rate:,}/hr.")
+                    else:
+                        await _wa_send(phone, "Usage: RATE 4000 (just the number after RATE)")
+
+                elif upper == "LINK":
+                    code = wa_user.get("link_code", "N/A")
+                    await _wa_send(phone, (
+                        f"🔗 Link your WhatsApp to your web account:\n"
+                        f"https://lexflow-dwa0.onrender.com/whatsapp/link/{code}\n\n"
+                        f"Your link code: *{code}*"
+                    ))
+
+                elif upper == "HELP":
+                    rate = wa_user.get("hourly_rate", DEFAULT_RATE)
+                    await _wa_send(phone, (
+                        f"*LexFlow Commands*\n\n"
+                        f"🎤 Voice note — extract billing\n"
+                        f"RATE 4000 — update rate (current: R{rate:,}/hr)\n"
+                        f"LINK — connect to web dashboard\n"
+                        f"HELP — show this menu"
+                    ))
+
+                else:
+                    await _wa_send(phone, "Send me a voice note to extract billing, or type HELP for commands.")
+
+    return {"status": "ok"}
 
 
 # ====================================================================
