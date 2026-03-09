@@ -1,5 +1,5 @@
+import { useNavigate } from "react-router-dom";
 import { formatZAR, formatDuration } from "@/lib/formatters";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Download } from "lucide-react";
 
 export interface BillingEntry {
@@ -13,66 +13,55 @@ export interface BillingEntry {
 
 interface BillingLedgerProps {
   entries: BillingEntry[];
-  onExport: () => void;
+  onExport?: () => void;
 }
 
 export function BillingLedger({ entries, onExport }: BillingLedgerProps) {
+  const navigate = useNavigate();
+
   return (
-    <div className="w-full space-y-12 pb-32">
-      <div className="flex items-end justify-between border-b border-primary/5 pb-8">
-        <div className="space-y-1">
-          <h3 className="text-3xl font-headline font-light text-primary tracking-tight">Billing Ledger</h3>
-          <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Real-time Firm Activity</p>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-serif text-primary">Billing Ledger</h2>
+          <p className="text-xs text-muted-foreground uppercase tracking-[0.15em] font-semibold mt-1">Real-time firm activity</p>
         </div>
-        <button 
-          onClick={onExport}
-          className="group flex items-center gap-3 px-8 py-3 border border-primary/10 hover:border-primary/30 bg-white transition-all shadow-sm hover:shadow-md"
-        >
-          <Download size={18} strokeWidth={1.5} className="text-accent group-hover:-translate-y-0.5 transition-transform" />
-          <span className="font-headline text-sm tracking-tight font-medium uppercase">Export FICA Report</span>
-        </button>
+        {onExport && (
+          <button onClick={onExport}
+            className="flex items-center gap-2 px-5 py-2.5 border border-border text-sm font-medium hover:bg-secondary/50 transition-colors rounded-lg">
+            <Download size={14} /> Export FICA Report
+          </button>
+        )}
       </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow className="border-none hover:bg-transparent">
-            <TableHead className="uppercase text-[10px] tracking-[0.2em] font-semibold text-muted-foreground">Timestamp</TableHead>
-            <TableHead className="uppercase text-[10px] tracking-[0.2em] font-semibold text-muted-foreground">Client Entity</TableHead>
-            <TableHead className="uppercase text-[10px] tracking-[0.2em] font-semibold text-muted-foreground">Matter Description</TableHead>
-            <TableHead className="uppercase text-[10px] tracking-[0.2em] font-semibold text-muted-foreground text-right">Duration</TableHead>
-            <TableHead className="uppercase text-[10px] tracking-[0.2em] font-semibold text-muted-foreground text-right">Billable Amount</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {entries.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={5} className="h-48 text-center text-muted-foreground font-light italic">
-                No billing entries detected. Upload a voice note to begin.
-              </TableCell>
-            </TableRow>
-          ) : (
-            entries.map((entry) => (
-              <TableRow key={entry.id} className="group border-b border-primary/[0.03] transition-colors hover:bg-zinc-50">
-                <TableCell className="font-light text-muted-foreground py-8">
+      <div className="bento-card overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border">
+              <th className="px-6 py-4 text-left text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold">Timestamp</th>
+              <th className="px-6 py-4 text-left text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold">Client Entity</th>
+              <th className="px-6 py-4 text-left text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold">Matter Description</th>
+              <th className="px-6 py-4 text-right text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold">Duration</th>
+              <th className="px-6 py-4 text-right text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold">Billable Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {entries.map((entry) => (
+              <tr key={entry.id}
+                onClick={() => navigate(`/entry/${entry.id}`)}
+                className="border-b border-border/50 hover:bg-secondary/20 transition-colors cursor-pointer">
+                <td className="px-6 py-5 text-muted-foreground tabular-nums">
                   {new Date(entry.timestamp).toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' })}
-                </TableCell>
-                <TableCell className="relative font-medium text-primary">
-                  <div className="fluted-glass absolute inset-0 opacity-0 group-hover:opacity-10 pointer-events-none transition-opacity rounded-sm" />
-                  {entry.clientName}
-                </TableCell>
-                <TableCell className="font-light text-primary/70 italic">{entry.matterDescription}</TableCell>
-                <TableCell className="text-right font-light text-primary/70 tabular-nums">{formatDuration(entry.duration)}</TableCell>
-                <TableCell className="text-right relative">
-                   <div className="fluted-glass absolute inset-y-2 right-0 w-24 opacity-0 group-hover:opacity-20 pointer-events-none transition-opacity" />
-                  <span className="font-headline text-lg tracking-tight font-medium text-primary tabular-nums">
-                    {formatZAR(entry.amount)}
-                  </span>
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+                </td>
+                <td className="px-6 py-5 font-medium text-primary">{entry.clientName}</td>
+                <td className="px-6 py-5 text-muted-foreground italic max-w-md truncate">{entry.matterDescription}</td>
+                <td className="px-6 py-5 text-right tabular-nums text-muted-foreground">{formatDuration(entry.duration)}</td>
+                <td className="px-6 py-5 text-right tabular-nums font-semibold text-primary">{formatZAR(entry.amount)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

@@ -198,17 +198,16 @@ export function AuthPage({ onAuth, initialMode = "login" }: AuthPageProps) {
   // ── Render ───────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="absolute inset-0 topo-pattern opacity-30 pointer-events-none" />
+    <div className="min-h-screen flex items-center justify-center px-4">
+      <div className="absolute inset-0 bg-background pointer-events-none" />
 
       <div className="relative w-full max-w-md space-y-8">
         {/* Brand header */}
         <div className="text-center space-y-3">
           <div className="flex items-center justify-center gap-2">
-            <span className="font-headline text-3xl font-bold tracking-tighter uppercase text-primary">
-              LexFlow
-            </span>
-            <div className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+            <span className="text-3xl font-bold tracking-tighter uppercase text-primary" style={{ fontFamily: 'Inter, sans-serif' }}>LEX</span>
+            <span className="text-2xl mx-[2px]" style={{ verticalAlign: 'middle' }}>⚖</span>
+            <span className="text-3xl font-bold tracking-tighter uppercase text-primary" style={{ fontFamily: 'Inter, sans-serif' }}>FLOW</span>
           </div>
           <p className="text-sm text-muted-foreground tracking-wider uppercase">
             {mode === "onboarding" ? "Complete Your Profile" : "Billing Intelligence Platform"}
@@ -216,7 +215,7 @@ export function AuthPage({ onAuth, initialMode = "login" }: AuthPageProps) {
         </div>
 
         {/* Auth card */}
-        <div className="fluted-glass p-8 space-y-6">
+        <div className="bento-card p-8 rounded-lg space-y-6">
           {error && (
             <div className="p-3 text-sm text-destructive bg-destructive/10 border border-destructive/20">
               {error}
@@ -255,7 +254,7 @@ export function AuthPage({ onAuth, initialMode = "login" }: AuthPageProps) {
                   <input type="number" value={hourlyRate} onChange={(e) => setHourlyRate(e.target.value)}
                     required min="100" placeholder="2500" className={INPUT_CLASS} />
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-1">AI will calculate billable amounts at this rate</p>
+                <p className="text-[10px] text-muted-foreground mt-1">Billable amounts will be calculated at this rate</p>
               </div>
 
               <button type="submit" disabled={loading} className={SUBMIT_CLASS}>
