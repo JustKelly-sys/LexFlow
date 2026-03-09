@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Breadcrumb } from "@/components/lexflow/Breadcrumb";
 import { WaveformVisualizer } from "@/components/lexflow/WaveformVisualizer";
-import { Mic, Square, Pause, Play, Flag, Upload, Check, Pencil, Lightbulb } from "lucide-react";
+import { Mic, Square, Pause, Play, Upload, Check, Lightbulb } from "lucide-react";
 import { toast } from "sonner";
 import type { Session } from "@supabase/supabase-js";
 
@@ -215,9 +215,7 @@ export function DictationPage({ session, onEntryExtracted }: DictationPageProps)
                   <button onClick={stopRecording} className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors">
                     <Square size={18} className="text-white" fill="white" />
                   </button>
-                  <button className="flex items-center gap-2 px-5 py-3 border border-border text-sm font-medium hover:bg-secondary/50 transition-colors rounded-lg">
-                    <Flag size={16} /> Mark
-                  </button>
+
                 </>
               ) : (
                 <>
@@ -322,15 +320,10 @@ export function DictationPage({ session, onEntryExtracted }: DictationPageProps)
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 pt-2">
-                  <button onClick={() => navigate('/review')}
-                    className="flex-1 flex items-center justify-center gap-2 py-4 bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 transition-all rounded-lg">
-                    <Check size={16} /> Confirm Entry
+                <button onClick={() => navigate('/review')}
+                    className="w-full flex items-center justify-center gap-2 py-4 bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 transition-all rounded-lg mt-2">
+                    <Check size={16} /> Review & Confirm
                   </button>
-                  <button className="p-4 border border-border hover:bg-secondary/50 transition-colors rounded-lg">
-                    <Pencil size={16} className="text-muted-foreground" />
-                  </button>
-                </div>
               </>
             ) : (
               <div className="py-8 text-center text-sm text-muted-foreground/50 italic">
