@@ -11,6 +11,7 @@ import { EntryDetailPage } from '@/pages/EntryDetailPage';
 import { FicaPage } from '@/pages/FicaPage';
 import { BillingLedger } from '@/components/lexflow/BillingLedger';
 import { MetricsStrip } from '@/components/lexflow/MetricsStrip';
+import { Breadcrumb } from '@/components/lexflow/Breadcrumb';
 import { InvoiceGenerator } from '@/components/lexflow/InvoiceGenerator';
 import { formatZAR } from '@/lib/formatters';
 import { Toaster, toast } from 'sonner';
@@ -42,17 +43,17 @@ const TOASTER_OPTS = {
 
 function LedgerPage({ entries, totalHours, totalRevenue, onExport, profile }: any) {
   return (
-    <div className="space-y-8 pt-4">
-      <MetricsStrip items={[
+    <div className="space-y-8">
+      <Breadcrumb items={[{ label: "Back to Dashboard", to: "/" }]} />
+      <MetricsStrip compact items={[
         { label: "Total Billable", value: formatZAR(totalRevenue) },
         { label: "Total Hours", value: totalHours.toFixed(1), unit: "hrs" },
         { label: "Matters Handled", value: entries.length },
         { label: "Compliance Score", value: "98%", accent: true },
       ]} />
-      <BillingLedger entries={entries} onExport={onExport} />
-      <div className="flex justify-end pb-12">
+      <BillingLedger entries={entries} onExport={onExport}>
         <InvoiceGenerator entries={entries} firmName={profile?.firm_name} userName={profile?.full_name} />
-      </div>
+      </BillingLedger>
     </div>
   );
 }
@@ -197,10 +198,7 @@ export default function App() {
     setSession(null); setProfile(null); setEntries([]); setPendingReviews([]); setConfidence(null);
   };
 
-  const handleUploadFromDashboard = () => {
-    // Navigate to dictation page where upload is available
-    window.location.href = '/dictate';
-  };
+  
 
   const totalHours = entries.reduce((a, c) => a + c.duration, 0);
   const totalRevenue = entries.reduce((a, c) => a + c.amount, 0);
@@ -236,7 +234,7 @@ export default function App() {
   // ── Authenticated shell ─────────────────────────────────────────
 
   return (
-    <main className="relative min-h-screen pt-20 px-8 md:px-16 lg:px-24 overflow-x-hidden bg-background">
+    <main className="relative min-h-screen pt-24 px-6 md:px-12 lg:px-20 overflow-x-hidden bg-background">
       <Toaster position="top-right" closeButton toastOptions={TOASTER_OPTS} />
 
       <Navbar
@@ -249,7 +247,7 @@ export default function App() {
       <div className="max-w-7xl mx-auto relative z-10 pb-12">
         <Routes>
           <Route path="/" element={
-            <DashboardPage entries={entries} totalHours={totalHours} totalRevenue={totalRevenue} onUploadClick={handleUploadFromDashboard} />
+            <DashboardPage entries={entries} totalHours={totalHours} totalRevenue={totalRevenue} session={session} onUploadComplete={handleEntryExtracted} />
           } />
           <Route path="/dictate" element={
             <DictationPage session={session} onEntryExtracted={handleEntryExtracted} />

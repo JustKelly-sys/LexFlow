@@ -18,6 +18,8 @@ export function DictationPage({ session, onEntryExtracted }: DictationPageProps)
   const [elapsed, setElapsed] = useState(0);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [transcript, setTranscript] = useState("");
+  const [liveTranscript, setLiveTranscript] = useState("");
+  const recognitionRef = useRef<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [pipelineStage, setPipelineStage] = useState<'idle' | 'transcribing' | 'extracting' | 'done'>('idle');
   const [extractedEntry, setExtractedEntry] = useState<any>(null);
@@ -61,6 +63,27 @@ export function DictationPage({ session, onEntryExtracted }: DictationPageProps)
       setElapsed(0);
       setExtractedEntry(null);
       setTranscript("");
+      setLiveTranscript("");
+      // Start Web Speech API for live preview
+      try {
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (SpeechRecognition) {
+          const recognition = new SpeechRecognition();
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          recognition.lang = 'en-ZA';
+          recognition.onresult = (event: any) => {
+            let text = '';
+            for (let i = 0; i < event.results.length; i++) {
+              text += event.results[i][0].transcript;
+            }
+            setLiveTranscript(text);
+          };
+          recognition.onerror = () => {};
+          recognition.start();
+          recognitionRef.current = recognition;
+        }
+      } catch {}
     } catch {
       toast.error("Microphone access denied. Please allow microphone access.");
     }
@@ -73,6 +96,11 @@ export function DictationPage({ session, onEntryExtracted }: DictationPageProps)
     stream?.getTracks().forEach(t => t.stop());
     setIsRecording(false);
     setIsPaused(false);
+    // Stop speech recognition
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch {}
+      recognitionRef.current = null;
+    }
   };
 
   const togglePause = () => {
@@ -216,9 +244,11 @@ export function DictationPage({ session, onEntryExtracted }: DictationPageProps)
             <div className="min-h-[100px] text-sm leading-relaxed text-primary">
               {transcript ? (
                 <p>{transcript}</p>
+              ) : liveTranscript ? (
+                <p className="text-primary/70">{liveTranscript}<span className="inline-block w-0.5 h-4 bg-primary/50 ml-0.5 animate-pulse" /></p>
               ) : (
                 <p className="text-muted-foreground/50 italic">
-                  {isRecording ? 'Transcription will appear here as you speak...' : 'Start recording or upload a file to see transcription'}
+                  {isRecording ? 'Listening...' : 'Start recording or upload a file to see transcription'}
                 </p>
               )}
             </div>
@@ -230,7 +260,7 @@ export function DictationPage({ session, onEntryExtracted }: DictationPageProps)
           {/* Extraction Status */}
           <div className="bento-sidebar p-6 rounded-lg space-y-4">
             <div className="flex items-center gap-2">
-              <span className="text-lg">&#10024;</span>
+              
               <div>
                 <div className="text-xs font-semibold uppercase tracking-[0.15em] text-primary">Extraction Status</div>
                 <div className="text-xs text-muted-foreground">

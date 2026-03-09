@@ -14,9 +14,10 @@ export interface BillingEntry {
 interface BillingLedgerProps {
   entries: BillingEntry[];
   onExport?: () => void;
+  children?: React.ReactNode;
 }
 
-export function BillingLedger({ entries, onExport }: BillingLedgerProps) {
+export function BillingLedger({ entries, onExport, children }: BillingLedgerProps) {
   const navigate = useNavigate();
 
   return (
@@ -32,6 +33,7 @@ export function BillingLedger({ entries, onExport }: BillingLedgerProps) {
             <Download size={14} /> Export FICA Report
           </button>
         )}
+        {children}
       </div>
 
       <div className="bento-card overflow-hidden">

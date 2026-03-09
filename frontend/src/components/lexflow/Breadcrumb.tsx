@@ -1,4 +1,4 @@
-import { ChevronRight, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 
 interface BreadcrumbItem {
@@ -21,7 +21,7 @@ export function Breadcrumb({ items }: BreadcrumbProps) {
       )}
       {items.slice(1).map((item, i) => (
         <span key={i} className="flex items-center gap-2">
-          <ChevronRight size={12} className="text-muted-foreground/40" />
+          <span className="text-muted-foreground/40">/</span>
           {item.to ? (
             <Link to={item.to} className="hover:text-primary transition-colors">{item.label}</Link>
           ) : (
