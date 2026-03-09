@@ -1,12 +1,42 @@
+# Dependencies
 venv/
+node_modules/
+frontend/dist/
+
+# Environment
 .env
+
+# Build artifacts
 __pycache__/
 *.pyc
+frontend/tsconfig.app.tsbuildinfo
+frontend/out.txt
+
+# Audio/media files
 *.wav
 *.mp3
 *.m4a
 *.vsix
 *.png
+*.pdf
 test_audio.*
-node_modules/
-frontend/dist/
+billing.csv
+
+# Other projects (not part of LexFlow)
+arb-scanner/
+generate_audio.py
+list_models.py
+test_offline.py
+untapped_market_analysis.txt
+Polymarket*
+
+# Docker (not used)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Agent artifacts
+implementation_plan.md*
+task.md*
+.system_generated/
+scrub_creds.py

@@ -1,5 +1,0 @@
-{
-  "artifactType": "ARTIFACT_TYPE_IMPLEMENTATION_PLAN",
-  "summary": "Comprehensive implementation plan for Polymarket/Kalshi wallet alert Telegram bot. Covers architecture (event-driven with queue system), tech stack (Python, PostgreSQL, Redis), data source integration for both platforms, tiered subscription model implementation, payment integration (Stripe + crypto), and phased development approach from MVP to full production.",
-  "updatedAt": "2025-12-17T12:09:34.173536100Z"
-}
