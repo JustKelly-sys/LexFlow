@@ -136,14 +136,29 @@ export default function App() {
 
   const handleApproveAll = async () => {
     if (!session || pendingReviews.length === 0) return;
-    toast.loading(`Saving ${pendingReviews.length} entries...`);
+    const total = pendingReviews.length;
+    toast.loading(`Saving ${total} entries...`);
     let saved = 0;
-    for (const entry of pendingReviews) {
-      try { const res = await fetch('/billing', { method: 'POST', headers: buildHeaders(session), body: JSON.stringify(entry) }); if (res.ok) saved++; } catch { /* ignored */ }
+    const failed: number[] = [];
+    for (let i = 0; i < pendingReviews.length; i++) {
+      try {
+        const res = await fetch('/billing', { method: 'POST', headers: buildHeaders(session), body: JSON.stringify(pendingReviews[i]) });
+        if (res.ok) saved++;
+        else failed.push(i);
+      } catch {
+        failed.push(i);
+      }
     }
     toast.dismiss();
-    toast.success(`${saved} of ${pendingReviews.length} entries saved.`);
-    setPendingReviews([]); setConfidence(null); fetchBilling(session);
+    if (failed.length === 0) {
+      toast.success(`All ${total} entries saved successfully.`);
+      setPendingReviews([]); setConfidence(null);
+    } else {
+      // Keep failed entries for retry, remove saved ones
+      setPendingReviews(pendingReviews.filter((_, i) => failed.includes(i)));
+      toast.error(`${saved} of ${total} saved. ${failed.length} failed — they remain for retry.`);
+    }
+    fetchBilling(session);
   };
 
   const handleDiscardEntry = (index: number) => {

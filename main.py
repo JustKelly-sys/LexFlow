@@ -237,7 +237,7 @@ async def transcribe_audio(file: UploadFile = File(...), user: dict = Depends(ge
             shutil.copyfileobj(file.file, tmp)
             tmp_path = tmp.name
 
-        uploaded = gemini.files.upload(file=tmp_path)
+        uploaded = await asyncio.to_thread(gemini.files.upload, file=tmp_path)
         result = await asyncio.to_thread(_extract_billing, gemini, uploaded, MODEL_NAME, _build_prompt(hourly_rate))
 
         print(f"[GEMINI] rate={hourly_rate}, entries={len(result.entries)}, confidence={result.confidence}")
@@ -246,7 +246,9 @@ async def transcribe_audio(file: UploadFile = File(...), user: dict = Depends(ge
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(500, str(e))
+        # Log full error server-side, send sanitized message to client
+        print(f"[ERROR] Transcription failed: {e}")
+        raise HTTPException(500, "Audio processing failed. Please try again or contact support.")
     finally:
         # POPIA: scrub temp file + Gemini upload immediately
         if tmp_path and os.path.exists(tmp_path):
@@ -378,12 +380,18 @@ async def update_profile(request: Request, user: dict = Depends(get_current_user
 @app.delete("/billing/{entry_id}")
 async def delete_billing_entry(entry_id: str, user: dict = Depends(get_current_user)):
     """Delete a specific billing entry by ID (must belong to authenticated user)."""
+    headers = _headers(user["token"])
+    headers["Prefer"] = "return=representation"
     async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
         res = await client.delete(
             _rest_url(f"billing_entries?id=eq.{entry_id}&user_id=eq.{user['id']}"),
-            headers=_headers(user["token"]),
+            headers=headers,
         )
     if res.status_code not in (200, 204):
+        raise HTTPException(500, "Failed to delete entry")
+    # Verify that a row was actually deleted
+    deleted_rows = res.json() if res.text.strip() else []
+    if not deleted_rows:
         raise HTTPException(404, "Entry not found or access denied")
     return JSONResponse(content={"status": "deleted"})
 

@@ -4,7 +4,7 @@
 
 **[Live Demo](https://lexflow-dwa0.onrender.com)**
 
-LexFlow is a voice-to-billing intelligence platform built for South African attorneys and law firms. Dictate or upload a voice note, and LexFlow transcribes it with Gemini, extracts structured billing entities, and presents an editable review form for human verification before committing to your personal ledger -- all scoped to your authenticated profile with Row Level Security.
+LexFlow is a voice-to-billing intelligence platform built for South African attorneys and law firms. Dictate or upload a voice note, and LexFlow transcribes it with Google Gemini, extracts structured billing entities, and presents an editable review form for human verification before committing to your personal ledger -- all scoped to your authenticated profile with Row Level Security.
 
 ---
 
@@ -13,7 +13,7 @@ LexFlow is a voice-to-billing intelligence platform built for South African atto
 1. **Sign Up** -- Create an account with your email and set your custom hourly rate (ZAR)
 2. **Dictate or Upload** -- Record a voice note in-browser or upload an audio file
 3. **Review & Approve** -- Extracted billing data appears in an editable form for human verification
-4. **Ledger Entry** -- Approved records are saved to your personal billing ledger with full FICA compliance
+4. **Ledger Entry** -- Approved records are saved to your personal billing ledger
 
 > **Recruiters:** Click **"Try Demo"** on the login page -- no signup required.
 
@@ -21,35 +21,38 @@ LexFlow is a voice-to-billing intelligence platform built for South African atto
 
 ## Features
 
-### Core
+### Core Pipeline
 - **Voice Dictation** -- Record directly from the browser with real-time waveform visualization
 - **Audio Upload** -- Supports MP3, WAV, M4A, WebM, FLAC, AAC, OGG
-- **Gemini Transcription** -- Structured entity extraction with Pydantic validation
-- **Custom Billing Rates** -- Each user's hourly rate is dynamically applied
+- **Gemini Extraction** -- Structured entity extraction (client name, matter, duration, amount) with Pydantic validation
+- **Custom Billing Rates** -- Each user's hourly rate is dynamically applied during extraction
 
 ### Human-in-the-Loop (HITL)
-- **Editable Review Form** -- Verify and correct client name, duration, matter, and amount before saving
+- **Editable Review Form** -- Verify and correct all fields before saving
 - **Confidence Scoring** -- Visual confidence bar shows extraction accuracy
 - **Approve or Discard** -- Nothing saves to the database until the user explicitly approves
+- **Batch Approval** -- Approve all entries at once with failure tracking and retry
 
 ### Authentication & Security
-- **Supabase Auth** -- Email + password with session management
+- **Supabase Auth** -- Email + password with JWT session management
 - **Row Level Security** -- Users only see their own billing data
 - **POPIA Compliance** -- Audio files are scrubbed from Gemini immediately after extraction
+- **Input Validation** -- All billing fields validated for length and content
 
-### Dashboard & Pages
-- **Dashboard Hub** -- Stat strip, recent entries, quick navigation to all features
-- **Active Dictation** -- Bento-box layout with live waveform, transcription, and extraction sidebar
-- **Review Entry** -- Editable form with entry preview, raw transcript, and confidence bar
-- **Entry Detail** -- Full billing entry view with Source & Compliance grid, Fee Calculation (incl. VAT), and Audit Trail
-- **Billing Ledger** -- Full history with clickable rows, export to CSV
-- **FICA Compliance Report** -- Compliance checklist, risk assessment, and audit trail
+### Pages
+- **Dashboard** -- Stat strip (real data-quality metrics), recent entries, quick navigation
+- **Active Dictation** -- Bento-box layout with live waveform, Web Speech API preview, extraction sidebar
+- **Review Entry** -- Editable HITL form with live entry preview and confidence bar
+- **Entry Detail** -- Full billing entry view with stable reference numbers and working delete
+- **Billing Ledger** -- Full history with clickable rows, CSV export, PDF invoice generation
+- **Data Quality Report** -- Analyses billing data completeness (client ID rate, description quality, duration accuracy)
 
 ### Design
-- **Warm Cream Aesthetic** -- Premium legal-tech look (#FDFCF6 background, Playfair Display serif headings)
-- **Bento Card Architecture** -- Clean white cards with soft borders, no glassmorphism
+- **Warm Cream Aesthetic** -- Premium legal-tech palette (#FDFCF6 background, Playfair Display headings)
+- **Bento Card Architecture** -- Clean white cards with soft borders
 - **Tabular Numbers** -- All financial figures use tabular-nums for column alignment
 - **PDF Invoice Generation** -- Branded invoices with jsPDF + autoTable
+- **Mobile Responsive** -- Hamburger menu navigation for mobile devices
 
 ---
 
@@ -57,11 +60,11 @@ LexFlow is a voice-to-billing intelligence platform built for South African atto
 
 | Layer | Technology |
 |-------|-----------|
-| **Frontend** | React 19, Vite, TypeScript, Tailwind CSS v4, Shadcn UI, Sonner, react-router-dom, jsPDF |
+| **Frontend** | React 19, Vite, TypeScript, Tailwind CSS v4, Sonner, react-router-dom, jsPDF |
 | **Backend** | Python, FastAPI, Uvicorn, httpx |
 | **AI** | Google Gemini API (gemini-2.0-flash) |
 | **Database** | Supabase (PostgreSQL + Row Level Security) |
-| **Auth** | Supabase Auth (email + password) |
+| **Auth** | Supabase Auth (email + password, JWT) |
 | **Deployment** | Render (auto-deploy from GitHub) |
 
 ---
@@ -71,43 +74,45 @@ LexFlow is a voice-to-billing intelligence platform built for South African atto
 ```
 LexFlow/
   main.py                    # FastAPI backend + Gemini + Supabase REST
-  requirements.txt           # Python dependencies
+  requirements.txt           # Python dependencies (pinned)
   render.yaml                # Render deployment config
+  tests/
+    test_lexflow.py           # 28 tests: schemas, CRUD, CORS, validation
   frontend/
     src/
-      App.tsx                 # Auth shell + route wiring
+      App.tsx                 # Auth shell + route wiring + ErrorBoundary
+      lib/
+        types.ts              # Shared interfaces (UserProfile, PendingReview, ExtractedEntry)
+        supabaseClient.ts     # Supabase browser client (env vars)
+        formatters.ts         # ZAR currency & duration formatting
       pages/
-        DashboardPage.tsx     # Hub: stats, CTAs, recent entries
+        DashboardPage.tsx     # Hub: real metrics, CTAs, recent entries
         DictationPage.tsx     # Recording + waveform + extraction sidebar
         ReviewPage.tsx        # HITL review form + confidence bar
-        EntryDetailPage.tsx   # Full entry detail + fee calc + audit trail
-        FicaPage.tsx          # Compliance report + risk assessment
+        EntryDetailPage.tsx   # Full entry detail view
+        LedgerPage.tsx        # Billing ledger + CSV export + invoices
+        FicaPage.tsx          # Data quality report
       components/
         lexflow/
           AuthPage.tsx        # Login / signup / onboarding / demo
-          Navbar.tsx          # LEX⚖FLOW logo + nav links
-          BillingLedger.tsx   # Ledger table with clickable rows
-          MetricsStrip.tsx    # Reusable 4-column stat strip
-          Breadcrumb.tsx      # Navigation breadcrumbs
+          Navbar.tsx          # LEX FLOW logo + nav + mobile hamburger
+          BillingLedger.tsx   # Ledger table with inline delete
+          MetricsStrip.tsx    # Reusable stat strip
+          ErrorBoundary.tsx   # Crash recovery wrapper
           WaveformVisualizer.tsx  # Web Audio API waveform
           InvoiceGenerator.tsx    # PDF invoice (jsPDF + autoTable)
-        ui/                   # Shadcn UI primitives
-      lib/
-        supabaseClient.ts     # Supabase browser client
-        utils.ts              # Tailwind class merge
-        formatters.ts         # ZAR currency & duration formatting
 ```
 
 **Routes:**
 
 | Route | Page | Description |
 |-------|------|-------------|
-| `/` | Dashboard | Stat strip, New Dictation CTA, recent entries |
+| `/` | Dashboard | Real metrics, recent entries, New Dictation + Upload CTAs |
 | `/dictate` | Dictation | Live recording with waveform + extraction sidebar |
 | `/review` | Review | Editable HITL form with confidence bar |
-| `/entry/:id` | Entry Detail | Full detail with fee calc, audit trail |
-| `/ledger` | Ledger | Billing table with export + invoice generation |
-| `/fica` | Compliance | FICA report with checklist + risk assessment |
+| `/entry/:id` | Entry Detail | Full detail with delete functionality |
+| `/ledger` | Ledger | Billing table with CSV export + PDF invoice generation |
+| `/fica` | Data Quality | Analyses billing data completeness and accuracy |
 
 **Data Flow:** Browser -> FastAPI -> Gemini (extract) -> User Review (HITL) -> Supabase (save) -> Dashboard
 
@@ -149,6 +154,7 @@ All endpoints except the frontend require `Authorization: Bearer <token>`.
 | POST | `/billing` | Save a user-approved billing entry |
 | GET | `/billing` | Get authenticated user's billing entries |
 | GET | `/billing/csv` | Download billing data as CSV |
+| DELETE | `/billing/{id}` | Delete a billing entry (verified) |
 | GET | `/profile` | Get user profile |
 | PATCH | `/profile` | Update profile (name, firm, rate) |
 
@@ -162,22 +168,19 @@ All endpoints except the frontend require `Authorization: Bearer <token>`.
 | **Supabase over Firebase** | Postgres + Row Level Security + built-in auth REST API |
 | **httpx over supabase-py** | Avoids C-extension build failures on Windows/Render |
 | **HITL over auto-save** | Legal billing demands accuracy -- AI extraction is a draft, not a fact |
-| **Bento layout over glassmorphism** | Premium legal aesthetic; cleaner, more professional |
+| **Bento layout** | Premium legal aesthetic; cleaner and more professional |
 | **Playfair Display serif** | Conveys authority and trust appropriate for legal tech |
-| **react-router-dom** | Client-side routing for fast page transitions without full reloads |
 
 ---
 
-## Development Journey
+## Testing
 
-1. **Core Engine** -- FastAPI + Gemini transcription + Pydantic schema
-2. **Structured Output** -- JSON extraction with retry logic
-3. **Professional Dashboard** -- React SPA with Shadcn UI
-4. **Supabase Integration** -- Auth, profiles, custom rates, RLS
-5. **Human-in-the-Loop** -- Review form, toast notifications, POPIA compliance, demo mode
-6. **Frontend Polish** -- Tabular numbers, stat strip, AI status dot, pipeline animation
-7. **Route Architecture + PDF Invoices** -- Multi-page SPA, jsPDF invoice generation
-8. **Frontend Redesign** -- Cream aesthetic, bento cards, serif headings, 6 dedicated pages
+```bash
+# Run all 28 tests
+python -m pytest tests/test_lexflow.py -v
+```
+
+Covers: Pydantic schemas, prompt builder, file validation, billing CRUD, CSV export, CORS config, DELETE endpoint, input validation.
 
 ---
 

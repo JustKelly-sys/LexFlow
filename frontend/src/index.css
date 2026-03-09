@@ -69,7 +69,7 @@
 }
 
 .bento-sidebar {
-  background: #F8F7F2;
+  background: hsl(var(--secondary));
   border: 1px solid hsl(var(--border));
 }
 

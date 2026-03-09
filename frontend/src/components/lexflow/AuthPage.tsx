@@ -316,7 +316,7 @@ export function AuthPage({ onAuth, initialMode = "login" }: AuthPageProps) {
         </div>
 
         <p className="text-center text-[10px] text-muted-foreground/50 uppercase tracking-[0.3em]">
-          FICA Compliant | End-to-End Encrypted
+          POPIA Compliant | HTTPS Secured
         </p>
       </div>
     </div>

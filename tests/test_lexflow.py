@@ -221,14 +221,17 @@ class TestCORS:
 class TestDeleteEndpoint:
     def test_delete_success(self, authed_client):
         """DELETE /billing/:id should return 200 when entry exists and belongs to user."""
-        with _make_httpx_mock(delete=_resp(204)):
+        # With Prefer:return=representation, Supabase returns the deleted rows
+        row = {"id": "some-uuid-123", "client_name": "Test", "user_id": "test-user-123"}
+        with _make_httpx_mock(delete=_resp(200, [row])):
             r = authed_client.delete("/billing/some-uuid-123")
         assert r.status_code == 200
         assert r.json()["status"] == "deleted"
 
     def test_delete_not_found(self, authed_client):
         """DELETE /billing/:id should return 404 when entry doesn't exist."""
-        with _make_httpx_mock(delete=_resp(404)):
+        # Supabase returns 200 with empty list when no rows matched the filter
+        with _make_httpx_mock(delete=_resp(200, [])):
             r = authed_client.delete("/billing/nonexistent-id")
         assert r.status_code == 404
 
