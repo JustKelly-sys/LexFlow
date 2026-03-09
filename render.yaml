@@ -17,4 +17,8 @@ services:
         value: '20'
       - key: PYTHON_VERSION
         value: '3.12.3'
+      - key: VITE_SUPABASE_URL
+        value: https://bhtjuoqfkwprlhseoxor.supabase.co
+      - key: VITE_SUPABASE_ANON_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJodGp1b3Fma3dwcmxoc2VveG9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4Nzg1OTcsImV4cCI6MjA4ODQ1NDU5N30.HMQ8Vo1Wjc7t7Bkbr1ehagQg4v7UndCHZWZLjZX8MWk
     plan: free
