@@ -21,3 +21,5 @@ test_offline.py
 
 node_modules/
 frontend/dist/
+
+frontend/.env

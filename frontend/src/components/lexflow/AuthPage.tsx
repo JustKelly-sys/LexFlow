@@ -13,6 +13,8 @@ interface AuthPageProps {
 
 // ── Constants ──────────────────────────────────────────────────────
 
+// Demo-only credentials — this is a portfolio demo account with no real data.
+// The password is intentionally client-visible to enable one-click demo access.
 const DEMO_EMAIL = "demo@lexflow.app";
 const DEMO_PASSWORD = "DemoLexFlow2026!";
 const DEFAULT_RATE = "2500";

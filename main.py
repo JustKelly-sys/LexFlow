@@ -16,6 +16,7 @@ import json
 import shutil
 import tempfile
 import time
+import asyncio
 
 # ── third-party ─────────────────────────────────────────────────────
 import httpx
@@ -155,7 +156,7 @@ def _extract_billing(client: genai.Client, audio_ref, model: str, prompt: str) -
                 raise  # not a rate-limit — propagate immediately
             delay = RETRY_BASE_DELAY * (2 ** attempt)
             print(f"[GEMINI] Rate limited (attempt {attempt + 1}/{MAX_RETRIES}), retrying in {delay}s...")
-            time.sleep(delay)
+            time.sleep(delay)  # safe: runs in asyncio.to_thread
 
     raise HTTPException(429, f"Gemini rate limit after {MAX_RETRIES} retries: {last_err}")
 
@@ -204,7 +205,7 @@ app = FastAPI(title="LexFlow API", version="3.1")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], allow_credentials=True,
+    allow_origins=["http://localhost:8000", "http://localhost:5173", "https://lexflow-dwa0.onrender.com"], allow_credentials=True,
     allow_methods=["*"], allow_headers=["*"],
 )
 
@@ -237,7 +238,7 @@ async def transcribe_audio(file: UploadFile = File(...), user: dict = Depends(ge
             tmp_path = tmp.name
 
         uploaded = gemini.files.upload(file=tmp_path)
-        result = _extract_billing(gemini, uploaded, MODEL_NAME, _build_prompt(hourly_rate))
+        result = await asyncio.to_thread(_extract_billing, gemini, uploaded, MODEL_NAME, _build_prompt(hourly_rate))
 
         print(f"[GEMINI] rate={hourly_rate}, entries={len(result.entries)}, confidence={result.confidence}")
         return JSONResponse(content=result.model_dump())
@@ -271,6 +272,14 @@ async def save_billing_entry(request: Request, user: dict = Depends(get_current_
         raise HTTPException(400, f"Missing fields: {missing}")
 
     # Build the row (original_ai_output is kept client-side until the DB column is added)
+    # Input validation
+    for field in required:
+        val = str(body[field])
+        if len(val) > 2000:
+            raise HTTPException(400, f"Field '{field}' exceeds maximum length (2000 chars)")
+        if len(val.strip()) == 0:
+            raise HTTPException(400, f"Field '{field}' cannot be empty")
+
     row = {"user_id": user["id"], **{k: body[k] for k in required}}
 
     async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
@@ -363,6 +372,20 @@ async def update_profile(request: Request, user: dict = Depends(get_current_user
     if res.text and res.json():
         return JSONResponse(content=res.json()[0])
     return JSONResponse(content={"status": "updated"})
+
+
+
+@app.delete("/billing/{entry_id}")
+async def delete_billing_entry(entry_id: str, user: dict = Depends(get_current_user)):
+    """Delete a specific billing entry by ID (must belong to authenticated user)."""
+    async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
+        res = await client.delete(
+            _rest_url(f"billing_entries?id=eq.{entry_id}&user_id=eq.{user['id']}"),
+            headers=_headers(user["token"]),
+        )
+    if res.status_code not in (200, 204):
+        raise HTTPException(404, "Entry not found or access denied")
+    return JSONResponse(content={"status": "deleted"})
 
 
 # ── Demo Seeder ─────────────────────────────────────────────────────

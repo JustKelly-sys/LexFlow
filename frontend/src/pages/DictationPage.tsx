@@ -83,7 +83,7 @@ export function DictationPage({ session, onEntryExtracted }: DictationPageProps)
           recognition.start();
           recognitionRef.current = recognition;
         }
-      } catch {}
+      } catch { /* ignored */ }
     } catch {
       toast.error("Microphone access denied. Please allow microphone access.");
     }
@@ -98,7 +98,7 @@ export function DictationPage({ session, onEntryExtracted }: DictationPageProps)
     setIsPaused(false);
     // Stop speech recognition
     if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch {}
+      try { recognitionRef.current.stop(); } catch { /* ignored */ }
       recognitionRef.current = null;
     }
   };

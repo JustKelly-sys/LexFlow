@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { Breadcrumb } from "@/components/lexflow/Breadcrumb";
 import { Check, Pencil, X, Volume2 } from "lucide-react";
 import { toast } from "sonner";
@@ -27,8 +27,7 @@ export function ReviewPage({ session, pendingReviews, confidence, onApprove, onA
   const navigate = useNavigate();
 
   if (pendingReviews.length === 0) {
-    navigate('/');
-    return null;
+    return <Navigate to="/" replace />;
   }
 
   const review = pendingReviews[0];

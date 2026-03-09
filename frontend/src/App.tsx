@@ -2,20 +2,26 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { Navbar } from '@/components/lexflow/Navbar';
+import { ErrorBoundary } from '@/components/lexflow/ErrorBoundary';
 import { BillingEntry } from '@/components/lexflow/BillingLedger';
 import { AuthPage } from '@/components/lexflow/AuthPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { DictationPage } from '@/pages/DictationPage';
 import { ReviewPage } from '@/pages/ReviewPage';
 import { EntryDetailPage } from '@/pages/EntryDetailPage';
+import { LedgerPage } from '@/pages/LedgerPage';
 import { FicaPage } from '@/pages/FicaPage';
-import { BillingLedger } from '@/components/lexflow/BillingLedger';
-import { MetricsStrip } from '@/components/lexflow/MetricsStrip';
-import { Breadcrumb } from '@/components/lexflow/Breadcrumb';
-import { InvoiceGenerator } from '@/components/lexflow/InvoiceGenerator';
-import { formatZAR } from '@/lib/formatters';
 import { Toaster, toast } from 'sonner';
 import type { Session } from '@supabase/supabase-js';
+
+// ── Types ──────────────────────────────────────────────────────────
+
+interface UserProfile {
+  full_name?: string;
+  firm_name?: string;
+  hourly_rate?: number;
+  onboarded?: boolean;
+}
 
 interface PendingReview {
   client_name: string;
@@ -24,6 +30,8 @@ interface PendingReview {
   billable_amount: string;
   original_ai_output?: Record<string, string>;
 }
+
+// ── Toast config ───────────────────────────────────────────────────
 
 const TOASTER_OPTS = {
   unstyled: true as const,
@@ -39,37 +47,17 @@ const TOASTER_OPTS = {
   },
 };
 
-// ── Ledger Page (inline — just wraps existing components) ──────────
-
-function LedgerPage({ entries, totalHours, totalRevenue, onExport, profile }: any) {
-  return (
-    <div className="space-y-8">
-      <Breadcrumb items={[{ label: "Back to Dashboard", to: "/" }]} />
-      <MetricsStrip compact items={[
-        { label: "Total Billable", value: formatZAR(totalRevenue) },
-        { label: "Total Hours", value: totalHours.toFixed(1), unit: "hrs" },
-        { label: "Matters Handled", value: entries.length },
-        { label: "Compliance Score", value: "98%", accent: true },
-      ]} />
-      <BillingLedger entries={entries} onExport={onExport}>
-        <InvoiceGenerator entries={entries} firmName={profile?.firm_name} userName={profile?.full_name} />
-      </BillingLedger>
-    </div>
-  );
-}
-
 // ── App ────────────────────────────────────────────────────────────
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [entries, setEntries] = useState<BillingEntry[]>([]);
   const [pipelineStage, setPipelineStage] = useState<'idle' | 'uploading' | 'transcribing' | 'extracting' | 'done'>('idle');
   const [pendingReviews, setPendingReviews] = useState<PendingReview[]>([]);
   const [confidence, setConfidence] = useState<number | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const buildHeaders = useCallback((s: Session) => ({
     'Authorization': `Bearer ${s.access_token}`,
@@ -92,20 +80,20 @@ export default function App() {
       const res = await fetch('/billing', { headers: buildHeaders(s) });
       if (res.ok) {
         const data = await res.json();
-        const mapped: BillingEntry[] = (data.entries || []).map((e: any, i: number) => {
-          const durStr = (e.duration || '0').toLowerCase();
+        const mapped: BillingEntry[] = (data.entries || []).map((e: Record<string, string | number>, i: number) => {
+          const durStr = String(e.duration || '0').toLowerCase();
           let hours = 0;
           const hm = durStr.match(/([\d.]+)\s*h/);
           const mm = durStr.match(/([\d.]+)\s*m/);
           if (hm) hours += parseFloat(hm[1]);
           if (mm) hours += parseFloat(mm[1]) / 60;
           if (!hm && !mm) hours = parseFloat(durStr) || 0;
-          const amtStr = (e.billable_amount || '0').replace(/[^\d.]/g, '');
+          const amtStr = String(e.billable_amount || '0').replace(/[^\d.]/g, '');
           return {
-            id: e.id || String(i),
-            timestamp: e.created_at || new Date().toISOString(),
-            clientName: e.client_name || 'Unknown',
-            matterDescription: e.matter_description || '',
+            id: String(e.id || i),
+            timestamp: String(e.created_at || new Date().toISOString()),
+            clientName: String(e.client_name || 'Unknown'),
+            matterDescription: String(e.matter_description || ''),
             duration: hours,
             amount: parseFloat(amtStr) || 0,
           };
@@ -135,7 +123,7 @@ export default function App() {
     if (s) { await fetchProfile(s); await fetchBilling(s); }
   }, [fetchProfile, fetchBilling]);
 
-  const handleEntryExtracted = useCallback((extractedEntries: any[], conf: number | null) => {
+  const handleEntryExtracted = useCallback((extractedEntries: PendingReview[], conf: number | null) => {
     setPendingReviews(extractedEntries);
     setConfidence(conf);
   }, []);
@@ -156,8 +144,7 @@ export default function App() {
       } else {
         const err = await res.json();
         const msg = err.detail || 'Unknown error';
-        const safeMsg = msg.includes('PGRST') || msg.includes('schema') ? 'Unable to save entry. Please try again.' : msg;
-        toast.error(safeMsg);
+        toast.error(msg.includes('PGRST') || msg.includes('schema') ? 'Unable to save entry. Please try again.' : msg);
       }
     } catch { toast.dismiss(); toast.error('Network error while saving.'); }
   };
@@ -167,7 +154,7 @@ export default function App() {
     toast.loading(`Saving ${pendingReviews.length} entries...`);
     let saved = 0;
     for (const entry of pendingReviews) {
-      try { const res = await fetch('/billing', { method: 'POST', headers: buildHeaders(session), body: JSON.stringify(entry) }); if (res.ok) saved++; } catch {}
+      try { const res = await fetch('/billing', { method: 'POST', headers: buildHeaders(session), body: JSON.stringify(entry) }); if (res.ok) saved++; } catch { /* ignored */ }
     }
     toast.dismiss();
     toast.success(`${saved} of ${pendingReviews.length} entries saved.`);
@@ -185,6 +172,18 @@ export default function App() {
     setPendingReviews(prev => prev.map((e, i) => i === index ? { ...e, [field]: value } : e));
   };
 
+  const handleDeleteEntry = async (entryId: string) => {
+    if (!session) return;
+    const res = await fetch(`/billing/${entryId}`, { method: 'DELETE', headers: buildHeaders(session) });
+    if (res.ok) {
+      setEntries(prev => prev.filter(e => e.id !== entryId));
+      toast.success('Entry deleted.');
+    } else {
+      toast.error('Failed to delete entry.');
+      throw new Error('Delete failed');
+    }
+  };
+
   const handleExport = () => {
     if (!session) return;
     fetch('/billing/csv', { headers: buildHeaders(session) })
@@ -197,8 +196,6 @@ export default function App() {
     await supabase.auth.signOut();
     setSession(null); setProfile(null); setEntries([]); setPendingReviews([]); setConfidence(null);
   };
-
-  
 
   const totalHours = entries.reduce((a, c) => a + c.duration, 0);
   const totalRevenue = entries.reduce((a, c) => a + c.amount, 0);
@@ -234,7 +231,7 @@ export default function App() {
   // ── Authenticated shell ─────────────────────────────────────────
 
   return (
-    <main className="relative min-h-screen pt-24 px-6 md:px-12 lg:px-20 overflow-x-hidden bg-background">
+    <main className="relative min-h-screen pt-24 px-4 sm:px-6 md:px-12 lg:px-20 overflow-x-hidden bg-background">
       <Toaster position="top-right" closeButton toastOptions={TOASTER_OPTS} />
 
       <Navbar
@@ -245,31 +242,32 @@ export default function App() {
       />
 
       <div className="max-w-7xl mx-auto relative z-10 pb-12">
-        <Routes>
-          <Route path="/" element={
-            <DashboardPage entries={entries} totalHours={totalHours} totalRevenue={totalRevenue} session={session} onUploadComplete={handleEntryExtracted} />
-          } />
-          <Route path="/dictate" element={
-            <DictationPage session={session} onEntryExtracted={handleEntryExtracted} />
-          } />
-          <Route path="/review" element={
-            <ReviewPage session={session} pendingReviews={pendingReviews} confidence={confidence}
-              onApprove={handleApproveEntry} onApproveAll={handleApproveAll}
-              onDiscard={handleDiscardEntry} onUpdate={handleUpdateReview} />
-          } />
-          <Route path="/entry/:id" element={<EntryDetailPage entries={entries} profile={profile} />} />
-          <Route path="/ledger" element={<LedgerPage entries={entries} totalHours={totalHours} totalRevenue={totalRevenue} onExport={handleExport} profile={profile} />} />
-          <Route path="/fica" element={<FicaPage entries={entries} totalHours={totalHours} totalRevenue={totalRevenue} profile={profile} />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <ErrorBoundary>
+          <Routes>
+            <Route path="/" element={
+              <DashboardPage entries={entries} totalHours={totalHours} totalRevenue={totalRevenue} session={session} onUploadComplete={handleEntryExtracted} />
+            } />
+            <Route path="/dictate" element={
+              <DictationPage session={session} onEntryExtracted={handleEntryExtracted} />
+            } />
+            <Route path="/review" element={
+              <ReviewPage session={session} pendingReviews={pendingReviews} confidence={confidence}
+                onApprove={handleApproveEntry} onApproveAll={handleApproveAll}
+                onDiscard={handleDiscardEntry} onUpdate={handleUpdateReview} />
+            } />
+            <Route path="/entry/:id" element={<EntryDetailPage entries={entries} profile={profile} onDelete={handleDeleteEntry} />} />
+            <Route path="/ledger" element={<LedgerPage entries={entries} totalHours={totalHours} totalRevenue={totalRevenue} onExport={handleExport} onDelete={handleDeleteEntry} profile={profile} />} />
+            <Route path="/fica" element={<FicaPage entries={entries} totalHours={totalHours} totalRevenue={totalRevenue} profile={profile} />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </ErrorBoundary>
       </div>
 
-      <footer className="relative z-10 py-8 flex items-center justify-between text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-medium border-t border-border max-w-7xl mx-auto">
+      <footer className="relative z-10 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-medium border-t border-border max-w-7xl mx-auto">
         <div>LEXFLOW &middot; Voice-powered legal billing intelligence</div>
         <div className="flex gap-8">
-          <span className="cursor-pointer hover:text-primary transition-colors">Privacy</span>
-          <span className="cursor-pointer hover:text-primary transition-colors">Terms</span>
-          <span className="cursor-pointer hover:text-primary transition-colors">Support</span>
+          <a href="https://github.com/JustKelly-sys/LexFlow" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">GitHub</a>
+          <a href="/fica" className="hover:text-primary transition-colors">Compliance</a>
         </div>
       </footer>
     </main>
