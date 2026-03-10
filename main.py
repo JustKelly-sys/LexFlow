@@ -17,6 +17,10 @@ import shutil
 import tempfile
 import time
 import asyncio
+import hashlib
+import hmac
+import secrets
+from datetime import datetime, timedelta, timezone
 
 # ── third-party ─────────────────────────────────────────────────────
 import httpx
@@ -567,9 +571,7 @@ async def _wa_get_or_create_user(phone: str) -> dict:
             return rows[0]
 
         # Create new user
-        import secrets
         link_code = secrets.token_urlsafe(6)[:8].upper()
-        from datetime import datetime, timedelta, timezone
 
         expires = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
 
@@ -604,6 +606,7 @@ async def _wa_save_billing(wa_user: dict, entry_data: dict):
         "duration": entry_data.get("duration", "0h"),
         "billable_amount": entry_data.get("billable_amount", "R0"),
         "source": "whatsapp",
+        "wa_phone": wa_user.get("phone", ""),
     }
     # Only set user_id if linked to a real Supabase auth account
     if user_id:
@@ -707,7 +710,12 @@ async def verify_webhook(
 @app.post("/webhook")
 async def receive_webhook(request: Request, bg: BackgroundTasks):
     """Receive incoming WhatsApp messages. Must return 200 immediately."""
-    body = await request.json()
+    raw_body = await request.body()
+    sig = request.headers.get("X-Hub-Signature-256", "")
+    if not _verify_webhook_signature(raw_body, sig):
+        print("[WA] Webhook signature verification failed")
+        raise HTTPException(401, "Invalid signature")
+    body = json.loads(raw_body)
 
     # Extract message data from Meta's nested payload
     try:
@@ -832,7 +840,6 @@ async def receive_webhook(request: Request, bg: BackgroundTasks):
 
                 elif upper == "LINK":
                     # Generate fresh link code with 10-min expiry
-                    from datetime import datetime, timedelta, timezone
                     code = secrets.token_urlsafe(6)[:8].upper()
                     expires = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
                     await _wa_update_user(phone, {"link_code": code, "link_code_expires_at": expires})
@@ -882,7 +889,6 @@ async def link_whatsapp(request: Request, user: dict = Depends(get_current_user)
 
         wa_user = rows[0]
         # Check link code expiry
-        from datetime import datetime, timezone
         expires_at = wa_user.get("link_code_expires_at")
         if expires_at:
             try:
