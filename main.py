@@ -583,11 +583,11 @@ async def _wa_process_voice_note(phone: str, media_id: str):
     wa_user = await _wa_get_or_create_user(phone)
     hourly_rate = wa_user.get("hourly_rate", DEFAULT_RATE)
 
-    await _wa_send(phone, "⏳ Processing your voice note...")
+    await _wa_send(phone, "Processing your voice note...")
 
     tmp_path = await _wa_download_audio(media_id)
     if not tmp_path:
-        await _wa_send(phone, "❌ Failed to download your voice note. Please try again.")
+        await _wa_send(phone, "Could not download the voice note. Please try again.")
         return
 
     uploaded = None
@@ -599,22 +599,21 @@ async def _wa_process_voice_note(phone: str, media_id: str):
         )
 
         if not result.entries:
-            await _wa_send(phone, "🤔 I couldn't extract any billing data from that voice note. Please try again with a clearer recording.")
+            await _wa_send(phone, "Could not extract billing data from that recording.\nTry again with a clearer voice note.")
             await _wa_update_user(phone, {"state": "READY"})
             return
 
         # Use first entry for approval flow
         entry = result.entries[0]
         summary = (
-            f"📋 Extracted from your voice note:\n\n"
-            f"*Client:* {entry.client_name}\n"
-            f"*Matter:* {entry.matter_description}\n"
-            f"*Duration:* {entry.duration}\n"
-            f"*Amount:* {entry.billable_amount}\n\n"
-            f"Reply:\n"
-            f"✅ *YES* — Save to ledger\n"
-            f"❌ *NO* — Discard\n"
-            f"✏️ *EDIT* — Open on web to modify"
+            f"*Billing Entry*\n"
+            f"\n"
+            f"Client: {entry.client_name}\n"
+            f"Matter: {entry.matter_description}\n"
+            f"Duration: {entry.duration}\n"
+            f"Amount: {entry.billable_amount}\n"
+            f"\n"
+            f"Reply *YES* to save, *NO* to discard, or *EDIT* to modify on web."
         )
         await _wa_send(phone, summary)
         await _wa_update_user(phone, {
@@ -624,7 +623,7 @@ async def _wa_process_voice_note(phone: str, media_id: str):
 
     except Exception as e:
         print(f"[WA] Processing failed for {phone}: {e}")
-        await _wa_send(phone, "❌ Something went wrong processing your voice note. Please try again.")
+        await _wa_send(phone, "Something went wrong. Please try again.")
         await _wa_update_user(phone, {"state": "READY"})
     finally:
         if tmp_path and os.path.exists(tmp_path):
@@ -677,19 +676,23 @@ async def receive_webhook(request: Request, bg: BackgroundTasks):
             if wa_user["state"] == "NEW":
                 # First interaction — send welcome, ask for rate
                 welcome = (
-                    "👋 Welcome to *LexFlow* — voice-to-billing for legal professionals.\n\n"
-                    "Here's how it works:\n"
-                    "1. Send me a voice note describing your billable work\n"
-                    "2. I'll extract the client name, matter, duration, and amount\n"
-                    "3. You approve, and it's saved to your billing ledger\n\n"
-                    "To get started, what's your hourly billing rate in ZAR?\n"
-                    "Just type a number (e.g. 3500)"
+                    "*LexFlow* — Billing Intelligence\n"
+                    "\n"
+                    "Turn voice notes into structured billing entries.\n"
+                    "\n"
+                    "_How it works:_\n"
+                    "1. Send a voice note about your billable work\n"
+                    "2. I extract the details automatically\n"
+                    "3. You approve and it's saved\n"
+                    "\n"
+                    "To begin, reply with your hourly rate in ZAR.\n"
+                    "Example: *3500*"
                 )
                 await _wa_send(phone, welcome)
                 await _wa_update_user(phone, {"state": "AWAITING_RATE"})
 
             elif wa_user["state"] == "AWAITING_RATE":
-                await _wa_send(phone, "Please set your hourly rate first. Just type a number (e.g. 3500)")
+                await _wa_send(phone, "Set your hourly rate first.\nReply with a number, e.g. *3500*")
 
             else:
                 # READY or AWAITING_APPROVAL — process the voice note
@@ -702,13 +705,17 @@ async def receive_webhook(request: Request, bg: BackgroundTasks):
             if wa_user["state"] == "NEW":
                 # First text message — send welcome
                 welcome = (
-                    "👋 Welcome to *LexFlow* — voice-to-billing for legal professionals.\n\n"
-                    "Here's how it works:\n"
-                    "1. Send me a voice note describing your billable work\n"
-                    "2. I'll extract the client name, matter, duration, and amount\n"
-                    "3. You approve, and it's saved to your billing ledger\n\n"
-                    "To get started, what's your hourly billing rate in ZAR?\n"
-                    "Just type a number (e.g. 3500)"
+                    "*LexFlow* — Billing Intelligence\n"
+                    "\n"
+                    "Turn voice notes into structured billing entries.\n"
+                    "\n"
+                    "_How it works:_\n"
+                    "1. Send a voice note about your billable work\n"
+                    "2. I extract the details automatically\n"
+                    "3. You approve and it's saved\n"
+                    "\n"
+                    "To begin, reply with your hourly rate in ZAR.\n"
+                    "Example: *3500*"
                 )
                 await _wa_send(phone, welcome)
                 await _wa_update_user(phone, {"state": "AWAITING_RATE"})
@@ -720,16 +727,17 @@ async def receive_webhook(request: Request, bg: BackgroundTasks):
                     rate = int(cleaned)
                     await _wa_update_user(phone, {"hourly_rate": rate, "state": "READY"})
                     await _wa_send(phone, (
-                        f"✅ Rate set to R{rate:,}/hr.\n"
-                        f"Send me a voice note and I'll extract your billing entry!\n\n"
-                        f"Commands:\n"
-                        f"🎤 Voice note — extract billing\n"
-                        f"RATE 4000 — update your rate\n"
-                        f"LINK — connect to web dashboard\n"
-                        f"HELP — show this menu"
+                        f"Rate set to *R{rate:,}/hr*.\n"
+                        f"\n"
+                        f"Send a voice note to get started.\n"
+                        f"\n"
+                        f"_Commands:_\n"
+                        f"RATE \u2014 update hourly rate\n"
+                        f"LINK \u2014 connect web dashboard\n"
+                        f"HELP \u2014 show commands"
                     ))
                 else:
-                    await _wa_send(phone, "Please type a valid number for your hourly rate (e.g. 3500)")
+                    await _wa_send(phone, "Reply with a valid number, e.g. *3500*")
 
             elif wa_user["state"] == "AWAITING_APPROVAL":
                 upper = text.upper().strip()
@@ -738,19 +746,19 @@ async def receive_webhook(request: Request, bg: BackgroundTasks):
                     if pending:
                         ok = await _wa_save_billing(wa_user, pending)
                         if ok:
-                            await _wa_send(phone, "✅ Saved! View your ledger: https://lexflow-dwa0.onrender.com")
+                            await _wa_send(phone, "Saved to your ledger.\nhttps://lexflow-dwa0.onrender.com")
                         else:
-                            await _wa_send(phone, "❌ Failed to save. Please try again.")
+                            await _wa_send(phone, "Failed to save. Please try again.")
                     else:
-                        await _wa_send(phone, "No pending entry found. Send a new voice note.")
+                        await _wa_send(phone, "No pending entry. Send a new voice note.")
                     await _wa_update_user(phone, {"state": "READY", "pending_entry": None})
 
                 elif upper == "NO":
-                    await _wa_send(phone, "❌ Discarded. Send another voice note when ready.")
+                    await _wa_send(phone, "Entry discarded.")
                     await _wa_update_user(phone, {"state": "READY", "pending_entry": None})
 
                 elif upper == "EDIT":
-                    await _wa_send(phone, "✏️ Edit on web: https://lexflow-dwa0.onrender.com/review\nLog in to review and modify the entry.")
+                    await _wa_send(phone, "Edit on web:\nhttps://lexflow-dwa0.onrender.com/review")
                     await _wa_update_user(phone, {"state": "READY"})
 
                 else:
@@ -764,30 +772,33 @@ async def receive_webhook(request: Request, bg: BackgroundTasks):
                     if parts.isdigit() and int(parts) > 0:
                         rate = int(parts)
                         await _wa_update_user(phone, {"hourly_rate": rate})
-                        await _wa_send(phone, f"✅ Rate updated to R{rate:,}/hr.")
+                        await _wa_send(phone, f"Rate updated to *R{rate:,}/hr*.")
                     else:
-                        await _wa_send(phone, "Usage: RATE 4000 (just the number after RATE)")
+                        await _wa_send(phone, "Usage: *RATE 4000*")
 
                 elif upper == "LINK":
                     code = wa_user.get("link_code", "N/A")
                     await _wa_send(phone, (
-                        f"🔗 Link your WhatsApp to your web account:\n"
-                        f"https://lexflow-dwa0.onrender.com/whatsapp/link/{code}\n\n"
-                        f"Your link code: *{code}*"
+                        f"Link your WhatsApp to your web account:\n"
+                        f"https://lexflow-dwa0.onrender.com/whatsapp/link/{code}\n"
+                        f"\n"
+                        f"Your link code: *{code}*"
                     ))
 
                 elif upper == "HELP":
                     rate = wa_user.get("hourly_rate", DEFAULT_RATE)
                     await _wa_send(phone, (
-                        f"*LexFlow Commands*\n\n"
-                        f"🎤 Voice note — extract billing\n"
-                        f"RATE 4000 — update rate (current: R{rate:,}/hr)\n"
-                        f"LINK — connect to web dashboard\n"
+                        f"*LexFlow Commands*\n"
+                        f"\n"
+                        f"Voice note \u2014 extract billing entry\n"
+                        f"RATE [amount] \u2014 update rate (current: R{rate:,}/hr)\n"
+                        f"LINK \u2014 connect to web dashboard\n"
+                        f"HELP \u2014 show this list"
                         f"HELP — show this menu"
                     ))
 
                 else:
-                    await _wa_send(phone, "Send me a voice note to extract billing, or type HELP for commands.")
+                    await _wa_send(phone, "Send a voice note to extract billing, or type *HELP* for commands.")
 
     return {"status": "ok"}
 

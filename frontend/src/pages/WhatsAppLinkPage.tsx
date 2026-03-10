@@ -9,13 +9,15 @@ interface WhatsAppLinkPageProps {
 }
 
 export function WhatsAppLinkPage({ session, code, onAuth }: WhatsAppLinkPageProps) {
-  const [status, setStatus] = useState<'idle' | 'linking' | 'success' | 'error' | 'login'>('idle');
+  const [status, setStatus] = useState<'idle' | 'linking' | 'success' | 'error' | 'auth'>('idle');
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [message, setMessage] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loginError, setLoginError] = useState('');
-  const [loginLoading, setLoginLoading] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
 
   useEffect(() => {
     if (!session || !code) return;
@@ -49,16 +51,37 @@ export function WhatsAppLinkPage({ session, code, onAuth }: WhatsAppLinkPageProp
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoginLoading(true);
-    setLoginError('');
+    setAuthLoading(true);
+    setAuthError('');
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      setLoginError(error.message);
-      setLoginLoading(false);
+      setAuthError(error.message);
+      setAuthLoading(false);
     } else {
-      // Auth state change will trigger App.tsx to update session,
-      // which will re-render this component with the session
       if (onAuth) onAuth();
+    }
+  };
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setAuthError('');
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: fullName } },
+    });
+    if (error) {
+      setAuthError(error.message);
+      setAuthLoading(false);
+    } else {
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) {
+        setAuthError('Account created! Please check your email to confirm, then come back here.');
+        setAuthLoading(false);
+      } else {
+        if (onAuth) onAuth();
+      }
     }
   };
 
@@ -77,47 +100,76 @@ export function WhatsAppLinkPage({ session, code, onAuth }: WhatsAppLinkPageProp
 
         <div className="bg-secondary/50 rounded-xl p-4">
           <div className="text-xs text-muted-foreground uppercase tracking-widest mb-1">Link Code</div>
-          <div className="font-mono text-2xl font-bold text-primary tracking-[0.3em]">{code || '—'}</div>
+          <div className="font-mono text-2xl font-bold text-primary tracking-[0.3em]">{code || '\u2014'}</div>
         </div>
 
-        {!session && status !== 'login' ? (
+        {!session && status !== 'auth' && status !== 'linking' && status !== 'success' ? (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Sign in to your LexFlow account to complete the link.
+              Sign in or create an account to connect your WhatsApp.
             </p>
             <button
-              onClick={() => setStatus('login')}
+              onClick={() => setStatus('auth')}
               className="w-full py-2.5 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors"
             >
-              Sign In to Link
+              Continue
             </button>
           </div>
-        ) : !session && status === 'login' ? (
-          <form onSubmit={handleLogin} className="space-y-4 text-left">
-            <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-widest">Email</label>
-              <input
-                type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                className="w-full mt-1 px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                placeholder="advocate@firm.co.za" required
-              />
+        ) : !session && status === 'auth' ? (
+          <div className="space-y-4">
+            <div className="flex rounded-lg border border-border overflow-hidden">
+              <button
+                onClick={() => { setAuthMode('login'); setAuthError(''); }}
+                className={`flex-1 py-2 text-sm font-medium transition-colors ${authMode === 'login' ? 'bg-primary text-primary-foreground' : 'bg-transparent text-muted-foreground hover:bg-secondary/50'}`}
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => { setAuthMode('signup'); setAuthError(''); }}
+                className={`flex-1 py-2 text-sm font-medium transition-colors ${authMode === 'signup' ? 'bg-primary text-primary-foreground' : 'bg-transparent text-muted-foreground hover:bg-secondary/50'}`}
+              >
+                Create Account
+              </button>
             </div>
-            <div>
-              <label className="text-xs text-muted-foreground uppercase tracking-widest">Password</label>
-              <input
-                type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-                className="w-full mt-1 px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                placeholder="Min. 6 characters" required
-              />
-            </div>
-            {loginError && <p className="text-xs text-red-500">{loginError}</p>}
-            <button
-              type="submit" disabled={loginLoading}
-              className="w-full py-2.5 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              {loginLoading ? 'Signing in...' : 'Sign In & Link'}
-            </button>
-          </form>
+
+            <form onSubmit={authMode === 'login' ? handleLogin : handleSignUp} className="space-y-3 text-left">
+              {authMode === 'signup' && (
+                <div>
+                  <label className="text-xs text-muted-foreground uppercase tracking-widest">Full Name</label>
+                  <input
+                    type="text" value={fullName} onChange={(e) => setFullName(e.target.value)}
+                    className="w-full mt-1 px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                    placeholder="e.g. Adv. T. Jafta" required
+                  />
+                </div>
+              )}
+              <div>
+                <label className="text-xs text-muted-foreground uppercase tracking-widest">Email</label>
+                <input
+                  type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                  className="w-full mt-1 px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                  placeholder="advocate@firm.co.za" required
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground uppercase tracking-widest">Password</label>
+                <input
+                  type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+                  className="w-full mt-1 px-3 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                  placeholder="Min. 6 characters" required minLength={6}
+                />
+              </div>
+              {authError && <p className="text-xs text-red-500">{authError}</p>}
+              <button
+                type="submit" disabled={authLoading}
+                className="w-full py-2.5 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {authLoading
+                  ? (authMode === 'login' ? 'Signing in...' : 'Creating account...')
+                  : (authMode === 'login' ? 'Sign In & Link' : 'Create Account & Link')}
+              </button>
+            </form>
+          </div>
         ) : status === 'linking' ? (
           <div className="flex items-center justify-center gap-3 text-muted-foreground">
             <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
