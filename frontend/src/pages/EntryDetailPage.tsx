@@ -11,17 +11,25 @@ interface EntryDetailPageProps {
   entries: BillingEntry[];
   profile: UserProfile;
   onDelete?: (id: string) => Promise<void>;
+  onEdit?: (id: string, updates: Record<string, string>) => Promise<void>;
 }
 
-export function EntryDetailPage({ entries, profile, onDelete }: EntryDetailPageProps) {
+export function EntryDetailPage({ entries, profile, onDelete, onEdit }: EntryDetailPageProps) {
   const { id } = useParams();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const entry = entries.find(e => e.id === id);
 
-  // Stable reference number derived from entry ID (not Math.random)
+  // Editable fields
+  const [editClient, setEditClient] = useState('');
+  const [editMatter, setEditMatter] = useState('');
+  const [editDuration, setEditDuration] = useState('');
+  const [editAmount, setEditAmount] = useState('');
+
+  // Stable reference number derived from entry ID
   const refNumber = useMemo(() => {
     if (!entry) return '';
     const hash = entry.id.split('').reduce((a, c) => ((a << 5) - a + c.charCodeAt(0)) | 0, 0);
@@ -30,6 +38,37 @@ export function EntryDetailPage({ entries, profile, onDelete }: EntryDetailPageP
   }, [entry]);
 
   if (!entry) return <Navigate to="/ledger" replace />;
+
+  const startEditing = () => {
+    setEditClient(entry.clientName);
+    setEditMatter(entry.matterDescription);
+    setEditDuration(formatDuration(entry.duration));
+    setEditAmount(formatZAR(entry.amount));
+    setEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setEditing(false);
+  };
+
+  const saveEdit = async () => {
+    if (!onEdit) return;
+    setSaving(true);
+    try {
+      await onEdit(entry.id, {
+        client_name: editClient,
+        matter_description: editMatter,
+        duration: editDuration,
+        billable_amount: editAmount,
+      });
+      toast.success('Entry updated.');
+      setEditing(false);
+    } catch {
+      toast.error('Failed to update entry.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!onDelete) return;
@@ -59,17 +98,32 @@ export function EntryDetailPage({ entries, profile, onDelete }: EntryDetailPageP
           <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold mb-1">
             Entry #{refNumber}
           </div>
-          <h1 className="text-3xl sm:text-4xl font-serif text-primary">{entry.clientName}</h1>
+          <h1 className="text-3xl sm:text-4xl font-serif text-primary">{editing ? 'Edit Entry' : entry.clientName}</h1>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => toast.info('Edit functionality coming soon.')}
-            className="flex items-center gap-2 px-4 py-2.5 border border-border text-sm font-medium hover:bg-secondary/50 transition-colors rounded-lg">
-            <Pencil size={14} /> Edit Entry
-          </button>
-          <button onClick={handleDelete} disabled={deleting || !onDelete}
-            className="flex items-center gap-2 px-4 py-2.5 border border-destructive/30 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors rounded-lg disabled:opacity-50">
-            <Trash2 size={14} /> {deleting ? 'Deleting...' : 'Delete'}
-          </button>
+          {editing ? (
+            <>
+              <button onClick={cancelEditing}
+                className="flex items-center gap-2 px-4 py-2.5 border border-border text-sm font-medium hover:bg-secondary/50 transition-colors rounded-lg">
+                <X size={14} /> Cancel
+              </button>
+              <button onClick={saveEdit} disabled={saving}
+                className="flex items-center gap-2 px-4 py-2.5 border border-emerald-500 bg-emerald-50 text-sm font-medium text-emerald-700 hover:bg-emerald-100 transition-colors rounded-lg disabled:opacity-50">
+                <Check size={14} /> {saving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={startEditing}
+                className="flex items-center gap-2 px-4 py-2.5 border border-border text-sm font-medium hover:bg-secondary/50 transition-colors rounded-lg">
+                <Pencil size={14} /> Edit Entry
+              </button>
+              <button onClick={handleDelete} disabled={deleting || !onDelete}
+                className="flex items-center gap-2 px-4 py-2.5 border border-destructive/30 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors rounded-lg disabled:opacity-50">
+                <Trash2 size={14} /> {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -78,8 +132,22 @@ export function EntryDetailPage({ entries, profile, onDelete }: EntryDetailPageP
         <div className="lg:col-span-2 space-y-6">
           <div className="bento-card p-6 sm:p-8 space-y-6">
             <div>
+              <div className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold mb-2">Client Name</div>
+              {editing ? (
+                <input value={editClient} onChange={e => setEditClient(e.target.value)}
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-primary bg-background focus:outline-none focus:ring-1 focus:ring-primary/30" />
+              ) : (
+                <p className="text-sm text-primary font-medium">{entry.clientName}</p>
+              )}
+            </div>
+            <div>
               <div className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold mb-2">Matter Description</div>
-              <p className="text-sm text-primary leading-relaxed">{entry.matterDescription}</p>
+              {editing ? (
+                <textarea value={editMatter} onChange={e => setEditMatter(e.target.value)} rows={3}
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm text-primary bg-background focus:outline-none focus:ring-1 focus:ring-primary/30 resize-none" />
+              ) : (
+                <p className="text-sm text-primary leading-relaxed">{entry.matterDescription}</p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-border">
@@ -91,7 +159,12 @@ export function EntryDetailPage({ entries, profile, onDelete }: EntryDetailPageP
               </div>
               <div>
                 <div className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold mb-1">Duration</div>
-                <div className="text-sm text-primary tabular-nums">{formatDuration(entry.duration)}</div>
+                {editing ? (
+                  <input value={editDuration} onChange={e => setEditDuration(e.target.value)}
+                    className="w-full px-2 py-1 border border-border rounded text-sm text-primary bg-background focus:outline-none focus:ring-1 focus:ring-primary/30" />
+                ) : (
+                  <div className="text-sm text-primary tabular-nums">{formatDuration(entry.duration)}</div>
+                )}
               </div>
               <div>
                 <div className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold mb-1">Hourly Rate</div>
@@ -99,29 +172,36 @@ export function EntryDetailPage({ entries, profile, onDelete }: EntryDetailPageP
               </div>
               <div>
                 <div className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold mb-1">Billable Amount</div>
-                <div className="text-xl font-semibold text-primary tabular-nums">{formatZAR(entry.amount)}</div>
+                {editing ? (
+                  <input value={editAmount} onChange={e => setEditAmount(e.target.value)}
+                    className="w-full px-2 py-1 border border-border rounded text-sm text-primary bg-background focus:outline-none focus:ring-1 focus:ring-primary/30" />
+                ) : (
+                  <div className="text-xl font-semibold text-primary tabular-nums">{formatZAR(entry.amount)}</div>
+                )}
               </div>
             </div>
           </div>
 
           {/* Fee Calculation */}
-          <div className="bento-card p-6 sm:p-8">
-            <div className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold mb-4">Fee Calculation</div>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Time recorded</span>
-                <span className="tabular-nums text-primary">{formatDuration(entry.duration)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Hourly rate</span>
-                <span className="tabular-nums text-primary">{formatZAR(profile?.hourly_rate || 2500)}/hr</span>
-              </div>
-              <div className="border-t border-border pt-3 flex justify-between font-semibold">
-                <span className="text-primary">Total billable</span>
-                <span className="tabular-nums text-primary">{formatZAR(entry.amount)}</span>
+          {!editing && (
+            <div className="bento-card p-6 sm:p-8">
+              <div className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold mb-4">Fee Calculation</div>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Time recorded</span>
+                  <span className="tabular-nums text-primary">{formatDuration(entry.duration)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Hourly rate</span>
+                  <span className="tabular-nums text-primary">{formatZAR(profile?.hourly_rate || 2500)}/hr</span>
+                </div>
+                <div className="border-t border-border pt-3 flex justify-between font-semibold">
+                  <span className="text-primary">Total billable</span>
+                  <span className="tabular-nums text-primary">{formatZAR(entry.amount)}</span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Sidebar */}
@@ -145,6 +225,12 @@ export function EntryDetailPage({ entries, profile, onDelete }: EntryDetailPageP
                 <div>
                   <div className="text-[10px] uppercase tracking-[0.1em] text-muted-foreground mb-0.5">Firm</div>
                   <div className="text-primary">{profile.firm_name}</div>
+                </div>
+              )}
+              {entry.source && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-[0.1em] text-muted-foreground mb-0.5">Source</div>
+                  <div className="text-primary capitalize">{entry.source === 'whatsapp' ? 'WhatsApp' : 'Web'}</div>
                 </div>
               )}
             </div>

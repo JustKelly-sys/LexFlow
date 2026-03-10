@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { formatZAR, formatDuration } from "@/lib/formatters";
-import { Download, Trash2 } from "lucide-react";
+import { Download, Trash2, MessageCircle, Globe } from "lucide-react";
 
 export interface BillingEntry {
   id: string;
@@ -9,6 +9,7 @@ export interface BillingEntry {
   matterDescription: string;
   duration: number;
   amount: number;
+  source?: 'web' | 'whatsapp';
 }
 
 interface BillingLedgerProps {
@@ -48,6 +49,7 @@ export function BillingLedger({ entries, onExport, onDelete, children }: Billing
               <th className="px-4 sm:px-6 py-4 text-left text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold hidden sm:table-cell">Matter Description</th>
               <th className="px-4 sm:px-6 py-4 text-right text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold">Duration</th>
               <th className="px-4 sm:px-6 py-4 text-right text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold">Amount</th>
+              <th className="px-2 py-4 text-center text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold hidden sm:table-cell w-16">Source</th>
               {onDelete && <th className="px-2 py-4 w-10"></th>}
             </tr>
           </thead>
@@ -69,6 +71,17 @@ export function BillingLedger({ entries, onExport, onDelete, children }: Billing
                   onClick={() => navigate(`/entry/${entry.id}`)}>{formatDuration(entry.duration)}</td>
                 <td className="px-4 sm:px-6 py-5 text-right tabular-nums font-semibold text-primary cursor-pointer"
                   onClick={() => navigate(`/entry/${entry.id}`)}>{formatZAR(entry.amount)}</td>
+                <td className="px-2 py-5 text-center hidden sm:table-cell">
+                  {entry.source === 'whatsapp' ? (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-medium" title="Via WhatsApp">
+                      <MessageCircle size={10} /> WA
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-medium" title="Via Web">
+                      <Globe size={10} /> Web
+                    </span>
+                  )}
+                </td>
                 {onDelete && (
                   <td className="px-2 py-5">
                     <button onClick={(e) => { e.stopPropagation(); onDelete(entry.id); }}

@@ -66,11 +66,11 @@ export function FicaPage({ entries, totalHours, totalRevenue, profile }: FicaPag
 
   return (
     <div className="space-y-8">
-      <Breadcrumb items={[{ label: "Back to Dashboard", to: "/" }, { label: "FICA Compliance" }]} />
+      <Breadcrumb items={[{ label: "Back to Dashboard", to: "/" }, { label: "Data Quality" }]} />
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-serif text-primary">FICA Compliance Report</h1>
+          <h1 className="text-4xl font-serif text-primary">Data Quality Report</h1>
           <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground font-semibold mt-2">
             Billing data quality assessment
           </p>

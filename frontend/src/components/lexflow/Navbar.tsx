@@ -61,7 +61,7 @@ export function Navbar({ userName, firmName, onLogout, aiStatus = 'ready' }: Nav
           <NavLink to="/fica" className={({ isActive }) =>
             `p-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-[0.15em] transition-colors ${isActive ? 'text-primary' : 'text-muted-foreground hover:text-primary'}`
           }>
-            <ShieldCheck size={18} strokeWidth={1.5} /> <span className="hidden sm:inline">FICA</span>
+            <ShieldCheck size={18} strokeWidth={1.5} /> <span className="hidden sm:inline">Quality</span>
           </NavLink>
           {onLogout && (
             <button onClick={onLogout} className="p-2 text-muted-foreground hover:text-destructive transition-colors" title="Sign Out">
@@ -88,7 +88,7 @@ export function Navbar({ userName, firmName, onLogout, aiStatus = 'ready' }: Nav
             <BookOpen size={16} /> Ledger
           </NavLink>
           <NavLink to="/fica" className={mobileLinkClass} onClick={() => setMobileOpen(false)}>
-            <ShieldCheck size={16} /> FICA Report
+            <ShieldCheck size={16} /> Data Quality
           </NavLink>
           {userName && (
             <div className="px-4 py-3 text-xs text-muted-foreground border-t border-border">

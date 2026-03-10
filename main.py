@@ -28,6 +28,8 @@ from fastapi.staticfiles import StaticFiles
 from google import genai
 from pydantic import BaseModel
 
+from urllib.parse import quote as _q
+
 
 # ====================================================================
 # 1. CONFIGURATION — loaded once at startup
@@ -52,6 +54,8 @@ HTTP_TIMEOUT       = 15.0       # seconds for all Supabase REST calls
 WHATSAPP_TOKEN      = os.getenv("WHATSAPP_TOKEN")
 WHATSAPP_PHONE_ID   = os.getenv("WHATSAPP_PHONE_ID")
 WEBHOOK_VERIFY_TOKEN = os.getenv("WEBHOOK_VERIFY_TOKEN", "lexflow-verify-2026")
+
+WHATSAPP_APP_SECRET  = os.getenv("WHATSAPP_APP_SECRET", "")
 GRAPH_API_URL       = "https://graph.facebook.com/v21.0"
 
 if not API_KEY:
@@ -397,7 +401,7 @@ async def delete_billing_entry(entry_id: str, user: dict = Depends(get_current_u
     headers["Prefer"] = "return=representation"
     async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
         res = await client.delete(
-            _rest_url(f"billing_entries?id=eq.{entry_id}&user_id=eq.{user['id']}"),
+            _rest_url(f"billing_entries?id=eq.{_q(entry_id)}&user_id=eq.{_q(user['id'])}"),
             headers=headers,
         )
     if res.status_code not in (200, 204):
@@ -408,6 +412,38 @@ async def delete_billing_entry(entry_id: str, user: dict = Depends(get_current_u
         raise HTTPException(404, "Entry not found or access denied")
     return JSONResponse(content={"status": "deleted"})
 
+
+
+@app.patch("/billing/{entry_id}")
+async def update_billing_entry(entry_id: str, request: Request, user: dict = Depends(get_current_user)):
+    """Update a billing entry's fields (must belong to authenticated user)."""
+    body = await request.json()
+    allowed = {"client_name", "matter_description", "duration", "billable_amount"}
+    update = {k: v for k, v in body.items() if k in allowed}
+    if not update:
+        raise HTTPException(400, "No valid fields to update")
+    for field, val in update.items():
+        if len(str(val)) > 2000:
+            raise HTTPException(400, f"Field '{field}' exceeds maximum length")
+        if len(str(val).strip()) == 0:
+            raise HTTPException(400, f"Field '{field}' cannot be empty")
+
+    async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
+        # Verify ownership first
+        check = await client.get(
+            _rest_url(f"billing_entries?id=eq.{_q(entry_id)}&user_id=eq.{_q(user['id'])}&select=id"),
+            headers=_headers(user["token"]),
+        )
+        if check.status_code != 200 or not check.json():
+            raise HTTPException(404, "Entry not found or access denied")
+        res = await client.patch(
+            _rest_url(f"billing_entries?id=eq.{_q(entry_id)}&user_id=eq.{_q(user['id'])}"),
+            headers=_headers(user["token"]),
+            json=update,
+        )
+    if res.status_code not in (200, 204):
+        raise HTTPException(500, f"Failed to update: {res.text}")
+    return JSONResponse(content={"status": "updated"})
 
 # ── Demo Seeder ─────────────────────────────────────────────────────
 
@@ -475,7 +511,7 @@ async def _wa_send(phone: str, text: str):
         print("[WA] WhatsApp not configured — skipping send")
         return
     async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
-        await client.post(
+        res = await client.post(
             f"{GRAPH_API_URL}/{WHATSAPP_PHONE_ID}/messages",
             headers={"Authorization": f"Bearer {WHATSAPP_TOKEN}", "Content-Type": "application/json"},
             json={
@@ -485,6 +521,8 @@ async def _wa_send(phone: str, text: str):
                 "text": {"body": text},
             },
         )
+        if res.status_code not in (200, 201):
+            print(f"[WA] Send failed ({res.status_code}): {res.text[:200]}")
 
 
 async def _wa_download_audio(media_id: str) -> str | None:
@@ -521,7 +559,7 @@ async def _wa_get_or_create_user(phone: str) -> dict:
     async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
         # Check if user exists
         res = await client.get(
-            _rest_url(f"whatsapp_users?phone=eq.{phone}&select=*"),
+            _rest_url(f"whatsapp_users?phone=eq.{_q(phone)}&select=*"),
             headers=_service_headers(),
         )
         rows = res.json() if res.status_code == 200 else []
@@ -531,7 +569,11 @@ async def _wa_get_or_create_user(phone: str) -> dict:
         # Create new user
         import secrets
         link_code = secrets.token_urlsafe(6)[:8].upper()
-        new_user = {"phone": phone, "state": "NEW", "hourly_rate": 2500, "link_code": link_code}
+        from datetime import datetime, timedelta, timezone
+
+        expires = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
+
+        new_user = {"phone": phone, "state": "NEW", "hourly_rate": 2500, "link_code": link_code, "link_code_expires_at": expires}
         res = await client.post(
             _rest_url("whatsapp_users"),
             headers=_service_headers(),
@@ -547,7 +589,7 @@ async def _wa_update_user(phone: str, updates: dict):
     """Update a WhatsApp user's state/rate/pending entry."""
     async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
         await client.patch(
-            _rest_url(f"whatsapp_users?phone=eq.{phone}"),
+            _rest_url(f"whatsapp_users?phone=eq.{_q(phone)}"),
             headers=_service_headers(),
             json=updates,
         )
@@ -633,6 +675,18 @@ async def _wa_process_voice_note(phone: str, media_id: str):
                 await asyncio.to_thread(gemini.files.delete, name=uploaded.name)
             except Exception:
                 pass
+
+
+def _verify_webhook_signature(raw_body: bytes, signature_header: str) -> bool:
+    """Verify Meta webhook payload using HMAC-SHA256 and app secret."""
+    if not WHATSAPP_APP_SECRET:
+        return True  # Skip verification if not configured (dev mode)
+    if not signature_header or not signature_header.startswith("sha256="):
+        return False
+    expected = hmac.new(
+        WHATSAPP_APP_SECRET.encode(), raw_body, hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(f"sha256={expected}", signature_header)
 
 
 # ── WhatsApp webhook endpoints ──────────────────────────────────────
@@ -777,7 +831,11 @@ async def receive_webhook(request: Request, bg: BackgroundTasks):
                         await _wa_send(phone, "Usage: *RATE 4000*")
 
                 elif upper == "LINK":
-                    code = wa_user.get("link_code", "N/A")
+                    # Generate fresh link code with 10-min expiry
+                    from datetime import datetime, timedelta, timezone
+                    code = secrets.token_urlsafe(6)[:8].upper()
+                    expires = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
+                    await _wa_update_user(phone, {"link_code": code, "link_code_expires_at": expires})
                     await _wa_send(phone, (
                         f"Link your WhatsApp to your web account:\n"
                         f"https://lexflow-dwa0.onrender.com/whatsapp/link/{code}\n"
@@ -815,7 +873,7 @@ async def link_whatsapp(request: Request, user: dict = Depends(get_current_user)
     async with httpx.AsyncClient(timeout=HTTP_TIMEOUT) as client:
         # Find WhatsApp user by link code
         res = await client.get(
-            _rest_url(f"whatsapp_users?link_code=eq.{code}&select=*"),
+            _rest_url(f"whatsapp_users?link_code=eq.{_q(code)}&select=*"),
             headers=_service_headers(),
         )
         rows = res.json() if res.status_code == 200 else []
@@ -823,12 +881,22 @@ async def link_whatsapp(request: Request, user: dict = Depends(get_current_user)
             raise HTTPException(404, "Invalid link code")
 
         wa_user = rows[0]
+        # Check link code expiry
+        from datetime import datetime, timezone
+        expires_at = wa_user.get("link_code_expires_at")
+        if expires_at:
+            try:
+                exp_dt = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+                if datetime.now(timezone.utc) > exp_dt:
+                    raise HTTPException(410, "Link code has expired. Type LINK in WhatsApp to get a new one.")
+            except (ValueError, TypeError):
+                pass  # If parsing fails, allow linking (backward compat)
         if wa_user.get("user_id") and wa_user["user_id"] != user["id"]:
             raise HTTPException(409, "This WhatsApp number is already linked to another account")
 
         # Link: set user_id on whatsapp_users
         await client.patch(
-            _rest_url(f"whatsapp_users?link_code=eq.{code}"),
+            _rest_url(f"whatsapp_users?link_code=eq.{_q(code)}"),
             headers=_service_headers(),
             json={"user_id": user["id"]},
         )
@@ -837,13 +905,13 @@ async def link_whatsapp(request: Request, user: dict = Depends(get_current_user)
         phone = wa_user["phone"]
         # Find entries saved without user_id that came from this WhatsApp session
         unlinked = await client.get(
-            _rest_url("billing_entries?user_id=is.null&source=eq.whatsapp&select=id"),
+            _rest_url(f"billing_entries?user_id=is.null&source=eq.whatsapp&wa_phone=eq.{_q(phone)}&select=id"),
             headers=_service_headers(),
         )
         if unlinked.status_code == 200 and unlinked.json():
             for entry in unlinked.json():
                 await client.patch(
-                    _rest_url(f"billing_entries?id=eq.{entry['id']}"),
+                    _rest_url(f"billing_entries?id=eq.{_q(str(entry['id']))}"),
                     headers=_service_headers(),
                     json={"user_id": user["id"]},
                 )

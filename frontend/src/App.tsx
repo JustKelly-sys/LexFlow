@@ -82,6 +82,7 @@ export default function App() {
             matterDescription: String(e.matter_description || ''),
             duration: hours,
             amount: parseFloat(amtStr) || 0,
+            source: (e.source === 'whatsapp' ? 'whatsapp' : 'web') as 'web' | 'whatsapp',
           };
         });
         setEntries(mapped);
@@ -198,12 +199,25 @@ export default function App() {
     setSession(null); setProfile(null); setEntries([]); setPendingReviews([]); setConfidence(null);
   };
 
+  const handleEditEntry = async (id: string, updates: Record<string, string>) => {
+    if (!session) return;
+    const res = await fetch(`/billing/${id}`, {
+      method: 'PATCH',
+      headers: buildHeaders(session),
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) throw new Error('Update failed');
+    await fetchBilling(session);
+  };
+
   const totalHours = entries.reduce((a, c) => a + c.duration, 0);
   const totalRevenue = entries.reduce((a, c) => a + c.amount, 0);
 
   // ── WhatsApp link page (works before and after auth) ───────────
-  if (window.location.pathname.startsWith('/whatsapp/link/')) {
-    const linkCode = window.location.pathname.split('/whatsapp/link/')[1];
+  // Rendered outside auth gate so unauthenticated users can sign up and link
+  const whatsAppMatch = window.location.pathname.match(/^\/whatsapp\/link\/([A-Za-z0-9_-]+)$/);
+  if (whatsAppMatch) {
+    const linkCode = whatsAppMatch[1];
     return (
       <>
         <Toaster position="top-right" closeButton toastOptions={TOASTER_OPTS} />
@@ -267,7 +281,7 @@ export default function App() {
                 onApprove={handleApproveEntry} onApproveAll={handleApproveAll}
                 onDiscard={handleDiscardEntry} onUpdate={handleUpdateReview} />
             } />
-            <Route path="/entry/:id" element={<EntryDetailPage entries={entries} profile={profile} onDelete={handleDeleteEntry} />} />
+            <Route path="/entry/:id" element={<EntryDetailPage entries={entries} profile={profile} onDelete={handleDeleteEntry} onEdit={handleEditEntry} />} />
             <Route path="/ledger" element={<LedgerPage entries={entries} totalHours={totalHours} totalRevenue={totalRevenue} onExport={handleExport} onDelete={handleDeleteEntry} profile={profile} />} />
             <Route path="/fica" element={<FicaPage entries={entries} totalHours={totalHours} totalRevenue={totalRevenue} profile={profile} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
@@ -279,7 +293,7 @@ export default function App() {
         <div>LEXFLOW &middot; Voice-powered legal billing intelligence</div>
         <div className="flex gap-8">
           <a href="https://github.com/JustKelly-sys/LexFlow" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">GitHub</a>
-          <a href="/fica" className="hover:text-primary transition-colors">Compliance</a>
+          <a href="/fica" className="hover:text-primary transition-colors">Data Quality</a>
         </div>
       </footer>
     </main>
