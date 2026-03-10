@@ -606,14 +606,14 @@ async def _wa_process_voice_note(phone: str, media_id: str):
         # Use first entry for approval flow
         entry = result.entries[0]
         summary = (
-            f"*Billing Entry*\n"
-            f"\n"
-            f"Client: {entry.client_name}\n"
-            f"Matter: {entry.matter_description}\n"
-            f"Duration: {entry.duration}\n"
-            f"Amount: {entry.billable_amount}\n"
-            f"\n"
-            f"Reply *YES* to save, *NO* to discard, or *EDIT* to modify on web."
+            f"*Billing Entry*\n"
+            f"\n"
+            f"Client: {entry.client_name}\n"
+            f"Matter: {entry.matter_description}\n"
+            f"Duration: {entry.duration}\n"
+            f"Amount: {entry.billable_amount}\n"
+            f"\n"
+            f"Reply *YES* to save, *NO* to discard, or *EDIT* to modify on web."
         )
         await _wa_send(phone, summary)
         await _wa_update_user(phone, {
@@ -728,13 +728,13 @@ async def receive_webhook(request: Request, bg: BackgroundTasks):
                     await _wa_update_user(phone, {"hourly_rate": rate, "state": "READY"})
                     await _wa_send(phone, (
                         f"Rate set to *R{rate:,}/hr*.\n"
-                        f"\n"
-                        f"Send a voice note to get started.\n"
-                        f"\n"
-                        f"_Commands:_\n"
-                        f"RATE \u2014 update hourly rate\n"
-                        f"LINK \u2014 connect web dashboard\n"
-                        f"HELP \u2014 show commands"
+                        f"\n"
+                        f"Send a voice note to get started.\n"
+                        f"\n"
+                        f"_Commands:_\n"
+                        f"RATE \u2014 update hourly rate\n"
+                        f"LINK \u2014 connect web dashboard\n"
+                        f"HELP \u2014 show commands"
                     ))
                 else:
                     await _wa_send(phone, "Reply with a valid number, e.g. *3500*")
@@ -779,22 +779,21 @@ async def receive_webhook(request: Request, bg: BackgroundTasks):
                 elif upper == "LINK":
                     code = wa_user.get("link_code", "N/A")
                     await _wa_send(phone, (
-                        f"Link your WhatsApp to your web account:\n"
-                        f"https://lexflow-dwa0.onrender.com/whatsapp/link/{code}\n"
-                        f"\n"
-                        f"Your link code: *{code}*"
+                        f"Link your WhatsApp to your web account:\n"
+                        f"https://lexflow-dwa0.onrender.com/whatsapp/link/{code}\n"
+                        f"\n"
+                        f"Your link code: *{code}*"
                     ))
 
                 elif upper == "HELP":
                     rate = wa_user.get("hourly_rate", DEFAULT_RATE)
                     await _wa_send(phone, (
-                        f"*LexFlow Commands*\n"
-                        f"\n"
-                        f"Voice note \u2014 extract billing entry\n"
-                        f"RATE [amount] \u2014 update rate (current: R{rate:,}/hr)\n"
-                        f"LINK \u2014 connect to web dashboard\n"
-                        f"HELP \u2014 show this list"
-                        f"HELP — show this menu"
+                        f"*LexFlow Commands*\n"
+                        f"\n"
+                        f"Voice note \u2014 extract billing entry\n"
+                        f"RATE [amount] \u2014 update rate (current: R{rate:,}/hr)\n"
+                        f"LINK \u2014 connect to web dashboard\n"
+                        f"HELP \u2014 show this list"
                     ))
 
                 else:
