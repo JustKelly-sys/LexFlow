@@ -1,11 +1,13 @@
 {
-  "items": 25,
-  "clause_type_accuracy": 0.96,
+  "items": 33,
+  "clause_type_accuracy": 0.9091,
   "field_accuracy": 1.0,
   "hallucination_rate": 0.0,
-  "null_fields_tested": 166,
+  "null_fields_tested": 316,
   "misses": [
-    "TYPE us_treasury_cancellation: expected consideration, got merger_mechanics"
+    "TYPE us_treasury_cancellation: expected consideration, got merger_mechanics",
+    "TYPE sa_offer_structure: expected merger_mechanics, got consideration",
+    "TYPE pay_taxes: expected miscellaneous, got indemnification"
   ],
   "rows": [
     {
@@ -18,7 +20,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       },
       "pred": {
         "clause_type": "merger_mechanics",
@@ -28,7 +33,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       }
     },
     {
@@ -41,7 +49,10 @@
         "per_share_cash_amount": 10.1,
         "per_share_cash_currency": "USD",
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       },
       "pred": {
         "clause_type": "consideration",
@@ -51,7 +62,10 @@
         "per_share_cash_amount": 10.1,
         "per_share_cash_currency": "USD",
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       }
     },
     {
@@ -64,7 +78,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       },
       "pred": {
         "clause_type": "merger_mechanics",
@@ -74,7 +91,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       }
     },
     {
@@ -87,7 +107,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       },
       "pred": {
         "clause_type": "payment_mechanics",
@@ -97,7 +120,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       }
     },
     {
@@ -110,7 +136,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       },
       "pred": {
         "clause_type": "appraisal_rights",
@@ -120,7 +149,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       }
     },
     {
@@ -133,7 +165,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       },
       "pred": {
         "clause_type": "equity_award_treatment",
@@ -143,7 +178,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       }
     },
     {
@@ -156,7 +194,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       },
       "pred": {
         "clause_type": "conditions_to_closing",
@@ -166,7 +207,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       }
     },
     {
@@ -179,7 +223,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": "2024-11-30"
+        "longstop_date": "2024-11-30",
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       },
       "pred": {
         "clause_type": "termination_rights",
@@ -189,7 +236,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": "2024-11-30"
+        "longstop_date": "2024-11-30",
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       }
     },
     {
@@ -202,7 +252,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       },
       "pred": {
         "clause_type": "termination_fee",
@@ -212,7 +265,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       }
     },
     {
@@ -225,7 +281,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       },
       "pred": {
         "clause_type": "amendment_waiver",
@@ -235,7 +294,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       }
     },
     {
@@ -248,7 +310,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       },
       "pred": {
         "clause_type": "miscellaneous",
@@ -258,7 +323,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       }
     },
     {
@@ -271,7 +339,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       },
       "pred": {
         "clause_type": "notices",
@@ -281,7 +352,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       }
     },
     {
@@ -294,7 +368,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       },
       "pred": {
         "clause_type": "miscellaneous",
@@ -304,7 +381,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       }
     },
     {
@@ -317,7 +397,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       },
       "pred": {
         "clause_type": "miscellaneous",
@@ -327,7 +410,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       }
     },
     {
@@ -340,7 +426,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       },
       "pred": {
         "clause_type": "governing_law",
@@ -350,7 +439,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       }
     },
     {
@@ -363,7 +455,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       },
       "pred": {
         "clause_type": "specific_performance",
@@ -373,7 +468,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       }
     },
     {
@@ -386,7 +484,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       },
       "pred": {
         "clause_type": "definitions",
@@ -396,7 +497,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       }
     },
     {
@@ -409,17 +513,23 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       },
       "pred": {
-        "clause_type": "merger_mechanics",
+        "clause_type": "consideration",
         "governing_law_jurisdiction": null,
         "termination_fee_amount": null,
         "termination_fee_currency": null,
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       }
     },
     {
@@ -432,7 +542,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": 0.09196,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       },
       "pred": {
         "clause_type": "consideration",
@@ -442,7 +555,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": 0.09196,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       }
     },
     {
@@ -455,7 +571,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       },
       "pred": {
         "clause_type": "conditions_to_closing",
@@ -465,7 +584,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       }
     },
     {
@@ -478,7 +600,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       },
       "pred": {
         "clause_type": "definitions",
@@ -488,7 +613,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       }
     },
     {
@@ -501,7 +629,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": "2025-09-30"
+        "longstop_date": "2025-09-30",
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       },
       "pred": {
         "clause_type": "conditions_to_closing",
@@ -511,7 +642,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": "2025-09-30"
+        "longstop_date": "2025-09-30",
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       }
     },
     {
@@ -524,7 +658,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       },
       "pred": {
         "clause_type": "breach_and_remedies",
@@ -534,7 +671,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       }
     },
     {
@@ -547,7 +687,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       },
       "pred": {
         "clause_type": "governing_law",
@@ -557,7 +700,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       }
     },
     {
@@ -570,7 +716,10 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       },
       "pred": {
         "clause_type": "confidentiality",
@@ -580,9 +729,245 @@
         "per_share_cash_amount": null,
         "per_share_cash_currency": null,
         "share_exchange_ratio": null,
-        "longstop_date": null
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
+      }
+    },
+    {
+      "id": "pay_term_renewal",
+      "gold": {
+        "clause_type": "term_and_renewal",
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null,
+        "initial_term_end_date": "2023-12-31",
+        "renewal_notice_days": 30,
+        "liability_cap_months": null
+      },
+      "pred": {
+        "clause_type": "term_and_renewal",
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null,
+        "initial_term_end_date": "2023-12-31",
+        "renewal_notice_days": 30.0,
+        "liability_cap_months": null
+      }
+    },
+    {
+      "id": "pay_change_of_terms",
+      "gold": {
+        "clause_type": "amendment_waiver",
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
+      },
+      "pred": {
+        "clause_type": "amendment_waiver",
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
+      }
+    },
+    {
+      "id": "pay_default_cure",
+      "gold": {
+        "clause_type": "breach_and_remedies",
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
+      },
+      "pred": {
+        "clause_type": "breach_and_remedies",
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
+      }
+    },
+    {
+      "id": "pay_liability_cap",
+      "gold": {
+        "clause_type": "limitation_of_liability",
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": 12
+      },
+      "pred": {
+        "clause_type": "limitation_of_liability",
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": 12.0
+      }
+    },
+    {
+      "id": "pay_payment_terms",
+      "gold": {
+        "clause_type": "payment_mechanics",
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
+      },
+      "pred": {
+        "clause_type": "payment_mechanics",
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
+      }
+    },
+    {
+      "id": "pay_indemnification",
+      "gold": {
+        "clause_type": "indemnification",
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": 12
+      },
+      "pred": {
+        "clause_type": "indemnification",
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": 12.0
+      }
+    },
+    {
+      "id": "pay_taxes",
+      "gold": {
+        "clause_type": "miscellaneous",
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
+      },
+      "pred": {
+        "clause_type": "indemnification",
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
+      }
+    },
+    {
+      "id": "pay_governing_law",
+      "gold": {
+        "clause_type": "governing_law",
+        "governing_law_jurisdiction": "Tennessee",
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
+      },
+      "pred": {
+        "clause_type": "governing_law",
+        "governing_law_jurisdiction": "Tennessee",
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null,
+        "initial_term_end_date": null,
+        "renewal_notice_days": null,
+        "liability_cap_months": null
       }
     }
   ],
-  "model": "gemini-3.1-flash-lite"
+  "model": "gemini-3.1-flash-lite",
+  "note": "Rescored after label correction: pay_indemnification.liability_cap_months null->12 (clause caps indemnity at 12 months' Issuer revenue; model was right, initial gold was wrong)."
 }

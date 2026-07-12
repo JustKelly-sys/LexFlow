@@ -41,6 +41,14 @@ Company (2024), SEC EDGAR accession 0001193125-24-162017. Included because
 US/English-style paper is what most legal-AI platforms process daily; the
 harness is jurisdiction-neutral by design.
 
+**Payments / commercial (CLM fields)** — `golden/comdata_avidxchange_2020_pay.jsonl`:
+clauses from the Comdata / AvidXchange virtual card agreement (2020), SEC
+EDGAR accession 0001193125-21-276254. This set exercises the fields a
+contract-lifecycle-management workflow lives on: initial term end date,
+non-renewal notice period, and revenue-based liability caps, with traps
+(change-of-terms notice periods and cure periods that must NOT be reported
+as renewal notice).
+
 Why EDGAR for both: it is the only large public corpus of *executed,
 full-text* deal documents that is legally free to republish, and because
 South African issuers and acquirers of SA companies file with the SEC, it
@@ -73,21 +81,29 @@ gold/prediction pairs and a list of every miss and hallucination.
 
 ## Results
 
-Latest committed run (2026-07-12, `gemini-3.1-flash-lite`, 25-item seed set,
-8 SA + 17 US):
+Latest committed run (2026-07-12, `gemini-3.1-flash-lite`, 33-item seed set,
+8 SA + 17 US + 8 payments/CLM):
 
 | Metric | Value |
 |---|---|
-| Clause-type accuracy | 96.0% (24/25) |
-| Field-extraction accuracy | 100.0% (175/175 fields) |
-| Hallucination rate | 0.0% (0 of 166 null fields asserted) |
+| Clause-type accuracy | 90.9% (30/33) |
+| Field-extraction accuracy | 100.0% (330/330 fields) |
+| Hallucination rate | 0.0% (0 of 316 null fields asserted) |
 
-All 8 South African items scored perfectly, including the TRP-escrow trap
-(the model correctly declined to report the ZAR4,500,000 escrow as a
-termination fee) and exact extraction of the 0.09196 consideration ratio,
-the 2025-09-30 longstop date, and South Africa as governing law. The single
-miss is a borderline US classification (treasury-share cancellation labeled
-`merger_mechanics` vs gold `consideration`), documented in `results.json`.
+Every extracted value was exact: the 0.09196 SA consideration ratio, both
+longstop dates, the USD 12.5m termination fee, the 2023-12-31 initial term,
+the 30-day renewal notice, and both 12-month revenue-based liability caps.
+The traps held: the ZAR4,500,000 TRP escrow was not reported as a fee, and
+change-of-terms/cure notice periods were not reported as renewal notice.
+The three misses are borderline clause-type classifications, each documented
+in `results.json`.
+
+Methodology note: during this run the label-review process caught a gold
+error, not a model error. The model reported a 12-month indemnity cap that
+the initial answer key had missed; the clause supports the model, so the
+gold was corrected and the run rescored against the fixed key (recorded in
+`results.json`). Golden sets are only as good as their review, which is why
+the labels are published.
 
 Numbers quoted anywhere (CV, README, LinkedIn) must come from a committed
 `results.json`, reproducible with the command above.

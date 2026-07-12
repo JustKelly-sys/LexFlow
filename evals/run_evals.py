@@ -34,7 +34,7 @@ CLAUSE_TYPES = [
     "termination_fee", "amendment_waiver", "notices", "governing_law",
     "specific_performance", "definitions", "indemnification",
     "non_solicitation", "breach_and_remedies", "confidentiality",
-    "miscellaneous",
+    "term_and_renewal", "limitation_of_liability", "miscellaneous",
 ]
 
 EXTRACTION_FIELDS = [
@@ -45,6 +45,9 @@ EXTRACTION_FIELDS = [
     "per_share_cash_currency",
     "share_exchange_ratio",
     "longstop_date",
+    "initial_term_end_date",
+    "renewal_notice_days",
+    "liability_cap_months",
 ]
 
 
@@ -57,6 +60,9 @@ class ClauseExtraction(BaseModel):
     per_share_cash_currency: str | None
     share_exchange_ratio: float | None
     longstop_date: str | None  # ISO date YYYY-MM-DD
+    initial_term_end_date: str | None  # ISO date YYYY-MM-DD
+    renewal_notice_days: float | None
+    liability_cap_months: float | None
 
 
 PROMPT = f"""You are a legal document analyst. Read the following clause from a
@@ -82,6 +88,17 @@ Rules — these are strict:
   Otherwise null.
 - longstop_date: ONLY if this clause states the longstop/outside date as a
   calendar date; format YYYY-MM-DD. Otherwise null.
+- initial_term_end_date: ONLY if this clause states the end date of the
+  agreement's initial term as a calendar date; format YYYY-MM-DD.
+  Otherwise null.
+- renewal_notice_days: ONLY if this clause states the notice period (in
+  days) for non-renewal of the agreement's term. Notice periods for OTHER
+  purposes (changes of terms, cure of defaults, general notices) do NOT
+  count. Otherwise null.
+- liability_cap_months: ONLY if this clause caps liability at an amount
+  tied to fees or revenue over a stated number of months (e.g. "fees paid
+  in the twelve months preceding"). Report the number of months.
+  Otherwise null.
 - Never infer a value from general knowledge or from other parts of the
   agreement. If the value is not written in this clause, return null.
 
