@@ -16,15 +16,15 @@ LexFlow converts voice dictations into structured billing entries for legal prof
 
 ## Measured Accuracy
 
-Extraction quality is benchmarked against a hand-labeled golden set of clauses from public deal documents, including a **South African scheme of arrangement under s114(1)(d) of the Companies Act 71 of 2008**. The benchmark's core metric is the hallucination rate: when a clause contains no value, does the model return null or invent one?
+Extraction quality is benchmarked against hand-labeled golden sets of clauses from public documents across three families: a **South African scheme of arrangement under s114(1)(d) of the Companies Act 71 of 2008**, a US merger agreement, and a **payment-services agreement** carrying the fields contract-lifecycle workflows depend on (term end dates, renewal notice periods, liability caps). The benchmark's core metric is the hallucination rate: when a clause contains no value, does the model return null or invent one?
 
-| Metric (latest committed run) | Value |
+| Metric (latest committed run, 33 items) | Value |
 |---|---|
-| Clause-type accuracy | 96.0% |
-| Field-extraction accuracy | 100.0% |
-| Hallucination rate | 0.0% (0 of 166 null fields) |
+| Field-extraction accuracy | 100.0% (330/330 fields) |
+| Hallucination rate | 0.0% (0 of 316 null fields) |
+| Clause-type accuracy | 90.9% (3 documented borderline calls) |
 
-Methodology, golden sets and per-item results: [`evals/`](evals/). Reproducible end to end from public SEC filings.
+Methodology, golden sets and per-item results: [`evals/`](evals/). Reproducible end to end from public SEC filings. The review process has already caught one answer-key error where the model was right and the label was wrong; the correction is documented, which is the point of publishing the labels.
 
 ---
 
