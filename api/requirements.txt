@@ -1,6 +1,6 @@
-# Lean dependency set for the Vercel serverless function.
+# Lean dependency set for the Vercel FastAPI service (see vercel.json).
 # lancedb/pyarrow/langgraph are intentionally excluded — they exceed the
-# serverless bundle limit; the app degrades to direct Gemini extraction.
+# function bundle limit; the app degrades to direct Gemini extraction.
 fastapi>=0.115.0,<1.0.0
 httpx>=0.27.0,<1.0.0
 python-dotenv>=1.0.0,<2.0.0

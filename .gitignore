@@ -33,3 +33,7 @@ test_audio.*
 Thumbs.db
 .vscode/
 .idea/
+
+.vercel
+.env*
+!.env.example
