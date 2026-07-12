@@ -18,7 +18,9 @@ log = logging.getLogger("lexflow")
 
 # ── Core
 API_KEY              = os.getenv("GOOGLE_API_KEY")
-MODEL_NAME           = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+# Default must be a model with live free-tier quota: gemini-2.0-flash now
+# returns 429 "limit: 0" on free keys (verified 2026-07-12)
+MODEL_NAME           = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
 SUPABASE_URL         = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 SUPABASE_ANON_KEY    = os.getenv("SUPABASE_ANON_KEY") or SUPABASE_SERVICE_KEY
