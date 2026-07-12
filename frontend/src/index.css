@@ -1,5 +1,10 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..600&family=Inter:wght@300;400;500;600;700&family=Fragment+Mono:ital@0;1&display=swap');
+
+/*
+  LexFlow design system — editorial forest/sage palette.
+  Display: Fraunces (soft editorial serif) · UI: Inter · Labels: Fragment Mono
+*/
 
 @theme {
   --color-border: hsl(var(--border));
@@ -21,56 +26,86 @@
   --color-popover-foreground: hsl(var(--popover-foreground));
   --color-card: hsl(var(--card));
   --color-card-foreground: hsl(var(--card-foreground));
+  --color-mint: hsl(var(--mint));
   --radius-lg: var(--radius);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 4px);
+  --radius-sm: calc(var(--radius) - 8px);
   --font-body: 'Inter', sans-serif;
   --font-headline: 'Inter', sans-serif;
-  --font-serif: 'Playfair Display', serif;
-  --font-code: monospace;
+  --font-serif: 'Fraunces', Georgia, serif;
+  --font-mono: 'Fragment Mono', monospace;
+  --font-code: 'Fragment Mono', monospace;
 }
 
 @layer base {
   :root {
-    --background: 43 33% 98%;
-    --foreground: 0 0% 10%;
+    /* Paper white with a cool green cast */
+    --background: 150 20% 98%;
+    --foreground: 170 24% 20%;
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 10%;
+    --card-foreground: 170 24% 20%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 10%;
-    --primary: 0 0% 10%;
-    --primary-foreground: 43 33% 98%;
-    --secondary: 40 18% 95%;
-    --secondary-foreground: 0 0% 10%;
-    --muted: 40 12% 93%;
-    --muted-foreground: 40 5% 52%;
-    --accent: 160 84% 39%;
-    --accent-foreground: 0 0% 10%;
-    --destructive: 0 84% 60%;
+    --popover-foreground: 170 24% 20%;
+    /* Deep forest ink (#2e4b46 family) */
+    --primary: 170 24% 24%;
+    --primary-foreground: 150 20% 98%;
+    /* Light mint panel (#d8f2ee family) */
+    --secondary: 171 50% 93%;
+    --secondary-foreground: 170 24% 24%;
+    --muted: 160 14% 94%;
+    --muted-foreground: 168 8% 44%;
+    /* Sage (#62a095) */
+    --accent: 169 24% 51%;
+    --accent-foreground: 170 24% 16%;
+    --mint: 171 50% 90%;
+    --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 98%;
-    --border: 40 12% 89%;
-    --input: 40 12% 89%;
-    --ring: 0 0% 10%;
-    --radius: 0.5rem;
+    --border: 165 14% 88%;
+    --input: 165 14% 88%;
+    --ring: 169 24% 51%;
+    --radius: 1rem;
   }
 }
 
 @layer base {
   * { @apply border-border; }
-  body { @apply bg-background text-foreground font-body; }
-  h1, h2, h3 { font-family: var(--font-serif); @apply tracking-tight; }
+  body { @apply bg-background text-foreground font-body antialiased; }
+  h1, h2, h3 {
+    font-family: var(--font-serif);
+    font-variation-settings: "opsz" 60;
+    @apply tracking-tight font-medium;
+  }
   h4, h5, h6 { @apply font-headline tracking-tight; }
+  ::selection { background: hsl(var(--mint)); }
 }
+
+/* ── Surfaces ─────────────────────────────────────────────────────── */
 
 .bento-card {
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  border-radius: 1.25rem;
+  box-shadow: 0 1px 2px rgba(46, 75, 70, 0.04), 0 8px 24px -16px rgba(46, 75, 70, 0.12);
 }
 
 .bento-sidebar {
   background: hsl(var(--secondary));
   border: 1px solid hsl(var(--border));
+  border-radius: 1.25rem;
+}
+
+/* Pill buttons — the reference rounds every action to a full pill */
+.btn-pill {
+  border-radius: 9999px;
+}
+
+/* Mono eyebrow label above headings */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: hsl(var(--accent));
 }
 
 .tabular-nums { font-variant-numeric: tabular-nums; }
@@ -101,6 +136,7 @@
   --normal-border: theme(colors.primary / 0.1);
   --normal-text: theme(colors.primary);
   font-family: var(--font-headline), system-ui, sans-serif;
+  border-radius: 1rem;
 }
 [data-sonner-toaster] [data-sonner-toast] [data-icon] svg { width: 16px; height: 16px; stroke-width: 1.5; }
 [data-sonner-toaster] [data-sonner-toast] [data-close-button] { position: absolute; top: 4px; right: 4px; background: transparent; border: none; opacity: 0.4; }

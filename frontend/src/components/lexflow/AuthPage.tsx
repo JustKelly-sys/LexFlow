@@ -22,11 +22,11 @@ const DEFAULT_RATE = "2500";
 // ── Shared CSS ─────────────────────────────────────────────────────
 
 const INPUT_CLASS =
-  "w-full pl-10 pr-4 py-3 bg-background border border-border text-sm font-light focus:outline-none focus:border-primary transition-colors";
+  "w-full pl-10 pr-4 py-3 bg-background border border-border rounded-xl text-sm focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors";
 const LABEL_CLASS =
-  "text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-semibold";
+  "font-mono text-[10px] text-muted-foreground uppercase tracking-[0.2em]";
 const SUBMIT_CLASS =
-  "w-full py-3 bg-primary text-primary-foreground font-headline text-sm tracking-tight hover:bg-primary/90 transition-all flex items-center justify-center gap-2";
+  "w-full py-3.5 bg-primary text-primary-foreground rounded-full text-sm font-medium hover:bg-primary/90 transition-all flex items-center justify-center gap-2";
 
 // ====================================================================
 // COMPONENT
@@ -200,26 +200,48 @@ export function AuthPage({ onAuth, initialMode = "login" }: AuthPageProps) {
   // ── Render ───────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-background pointer-events-none" />
+    <div className="min-h-screen px-4 py-12 lg:py-0 flex items-center justify-center bg-background">
+      <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
 
-      <div className="relative w-full max-w-md space-y-8">
-        {/* Brand header */}
-        <div className="text-center space-y-3">
-          <div className="flex items-center justify-center gap-2">
-            <span className="text-3xl font-bold tracking-tighter uppercase text-primary" style={{ fontFamily: 'Inter, sans-serif' }}>LEX</span>
-            <span className="text-2xl mx-[2px]" style={{ verticalAlign: 'middle' }}>⚖</span>
-            <span className="text-3xl font-bold tracking-tighter uppercase text-primary" style={{ fontFamily: 'Inter, sans-serif' }}>FLOW</span>
+        {/* ── Editorial hero (left) ── */}
+        <div className="space-y-7 text-center lg:text-left">
+          <div className="flex items-center justify-center lg:justify-start">
+            <span className="font-serif text-3xl text-primary tracking-tight">
+              LexFlow<span className="text-accent">.</span>
+            </span>
           </div>
-          <p className="text-sm text-muted-foreground tracking-wider uppercase">
-            {mode === "onboarding" ? "Complete Your Profile" : "Billing Intelligence Platform"}
+
+          <p className="eyebrow">Billing intelligence for legal professionals</p>
+
+          <h1 className="font-serif text-4xl sm:text-5xl lg:text-[3.6rem] leading-[1.05] text-primary">
+            Speak your work.
+            <br />
+            <span className="italic text-accent">Bill it</span> in seconds.
+          </h1>
+
+          <p className="text-base text-muted-foreground max-w-md mx-auto lg:mx-0 leading-relaxed">
+            LexFlow turns voice notes into structured, reviewable billing
+            entries. Dictate after a consultation, on the road, or over
+            WhatsApp; approve the entry, and your ledger stays current.
           </p>
+
+          <div className="hidden lg:flex items-center gap-6 pt-2">
+            {["Gemini AI extraction", "WhatsApp intake", "POPIA compliant"].map((f) => (
+              <span key={f} className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="w-1.5 h-1.5 rounded-full bg-accent" /> {f}
+              </span>
+            ))}
+          </div>
         </div>
 
-        {/* Auth card */}
-        <div className="bento-card p-8 rounded-lg space-y-6">
+        {/* ── Auth card (right) ── */}
+        <div className="w-full max-w-md mx-auto space-y-6">
+        {mode === "onboarding" && (
+          <p className="eyebrow text-center">Complete your profile</p>
+        )}
+        <div className="bento-card p-8 sm:p-10 space-y-6">
           {error && (
-            <div className="p-3 text-sm text-destructive bg-destructive/10 border border-destructive/20">
+            <div className="p-3 rounded-xl text-sm text-destructive bg-destructive/10 border border-destructive/20">
               {error}
             </div>
           )}
@@ -304,20 +326,21 @@ export function AuthPage({ onAuth, initialMode = "login" }: AuthPageProps) {
 
               <div className="relative">
                 <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-primary/10" /></div>
-                <div className="relative flex justify-center"><span className="bg-background px-3 text-[10px] text-muted-foreground uppercase tracking-widest">or</span></div>
+                <div className="relative flex justify-center"><span className="bg-card px-3 font-mono text-[10px] text-muted-foreground uppercase tracking-widest">or</span></div>
               </div>
 
               <button type="button" onClick={handleDemo} disabled={loading}
-                className="w-full py-3 border border-accent/30 text-primary font-headline tracking-tight hover:bg-accent/5 transition-all text-sm">
-                {loading ? "Loading Demo..." : "Try Demo \u2014 No Sign Up Required"}
+                className="w-full py-3.5 rounded-full bg-secondary text-primary text-sm font-medium hover:bg-mint transition-all">
+                {loading ? "Loading Demo..." : "Try the demo, no sign-up required"}
               </button>
             </div>
           )}
         </div>
 
-        <p className="text-center text-[10px] text-muted-foreground/50 uppercase tracking-[0.3em]">
+        <p className="text-center font-mono text-[10px] text-muted-foreground/60 uppercase tracking-[0.3em]">
           POPIA Compliant | HTTPS Secured
         </p>
+        </div>
       </div>
     </div>
   );
