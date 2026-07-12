@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import type { Session } from '@supabase/supabase-js';
 
@@ -19,11 +19,14 @@ export function WhatsAppLinkPage({ session, code, onAuth }: WhatsAppLinkPageProp
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
 
+  // The link attempt runs once per mount; "linking" is derived below rather
+  // than set synchronously in the effect (react-hooks/set-state-in-effect).
+  const linkAttempted = useRef(false);
+
   useEffect(() => {
-    if (!session || !code) return;
-    if (status === 'success' || status === 'linking') return;
-    
-    setStatus('linking');
+    if (!session || !code || linkAttempted.current) return;
+    linkAttempted.current = true;
+
     fetch('/whatsapp/link', {
       method: 'POST',
       headers: {
@@ -48,6 +51,9 @@ export function WhatsAppLinkPage({ session, code, onAuth }: WhatsAppLinkPageProp
         setMessage('Network error. Please try again.');
       });
   }, [session, code]);
+
+  // While signed in with a code and no outcome yet, we are linking
+  const effectiveStatus = session && code && status === 'idle' ? 'linking' : status;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,7 +109,7 @@ export function WhatsAppLinkPage({ session, code, onAuth }: WhatsAppLinkPageProp
           <div className="font-mono text-2xl font-bold text-primary tracking-[0.3em]">{code || '\u2014'}</div>
         </div>
 
-        {!session && status !== 'auth' && status !== 'linking' && status !== 'success' ? (
+        {!session && effectiveStatus !== 'auth' && effectiveStatus !== 'linking' && effectiveStatus !== 'success' ? (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
               Sign in or create an account to connect your WhatsApp.
@@ -115,7 +121,7 @@ export function WhatsAppLinkPage({ session, code, onAuth }: WhatsAppLinkPageProp
               Continue
             </button>
           </div>
-        ) : !session && status === 'auth' ? (
+        ) : !session && effectiveStatus === 'auth' ? (
           <div className="space-y-4">
             <div className="flex rounded-lg border border-border overflow-hidden">
               <button
@@ -170,12 +176,12 @@ export function WhatsAppLinkPage({ session, code, onAuth }: WhatsAppLinkPageProp
               </button>
             </form>
           </div>
-        ) : status === 'linking' ? (
+        ) : effectiveStatus === 'linking' ? (
           <div className="flex items-center justify-center gap-3 text-muted-foreground">
             <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
             <span className="text-sm">Linking your accounts...</span>
           </div>
-        ) : status === 'success' ? (
+        ) : effectiveStatus === 'success' ? (
           <div className="space-y-4">
             <div className="flex items-center justify-center gap-2 text-emerald-600">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -198,7 +204,7 @@ export function WhatsAppLinkPage({ session, code, onAuth }: WhatsAppLinkPageProp
               Go to Dashboard
             </a>
           </div>
-        ) : status === 'error' ? (
+        ) : effectiveStatus === 'error' ? (
           <div className="space-y-4">
             <div className="flex items-center justify-center gap-2 text-red-500">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
