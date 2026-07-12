@@ -1,8 +1,10 @@
 """
 LexFlow Evals — clause classification + grounded field extraction benchmark.
 
-Measures, against a hand-labeled golden set of clauses from public SEC EDGAR
-merger agreements:
+Measures, against hand-labeled golden sets of clauses from public deal
+documents (a South African scheme-of-arrangement firm intention agreement
+under the Companies Act 71 of 2008, and a US merger agreement from SEC
+EDGAR), three things:
 
   1. clause-type classification accuracy
   2. field-extraction accuracy (exact match per field)
@@ -31,38 +33,54 @@ CLAUSE_TYPES = [
     "equity_award_treatment", "conditions_to_closing", "termination_rights",
     "termination_fee", "amendment_waiver", "notices", "governing_law",
     "specific_performance", "definitions", "indemnification",
-    "non_solicitation", "miscellaneous",
+    "non_solicitation", "breach_and_remedies", "confidentiality",
+    "miscellaneous",
 ]
 
 EXTRACTION_FIELDS = [
-    "governing_law_state",
-    "termination_fee_usd",
-    "per_share_consideration_usd",
-    "outside_date",
+    "governing_law_jurisdiction",
+    "termination_fee_amount",
+    "termination_fee_currency",
+    "per_share_cash_amount",
+    "per_share_cash_currency",
+    "share_exchange_ratio",
+    "longstop_date",
 ]
 
 
 class ClauseExtraction(BaseModel):
     clause_type: str
-    governing_law_state: str | None
-    termination_fee_usd: float | None
-    per_share_consideration_usd: float | None
-    outside_date: str | None  # ISO date YYYY-MM-DD
+    governing_law_jurisdiction: str | None
+    termination_fee_amount: float | None
+    termination_fee_currency: str | None
+    per_share_cash_amount: float | None
+    per_share_cash_currency: str | None
+    share_exchange_ratio: float | None
+    longstop_date: str | None  # ISO date YYYY-MM-DD
 
 
 PROMPT = f"""You are a legal document analyst. Read the following clause from a
-merger agreement and return structured data.
+transaction agreement (it may be a South African scheme of arrangement under
+the Companies Act 71 of 2008, or a US merger agreement) and return
+structured data.
 
 Rules — these are strict:
 - clause_type: exactly one of {CLAUSE_TYPES}.
-- governing_law_state: ONLY if this clause itself designates a governing law
-  (e.g. "governed by the Laws of the State of X"). A clause merely mentioning
-  a state (for filings, courts, addresses) does NOT count. Otherwise null.
-- termination_fee_usd: ONLY if this clause states a termination fee amount in
-  dollars. Otherwise null.
-- per_share_consideration_usd: ONLY if this clause states the per-share cash
-  consideration in dollars. Otherwise null.
-- outside_date: ONLY if this clause states the outside/termination date as a
+- governing_law_jurisdiction: ONLY if this clause itself designates a
+  governing law (e.g. "governed by the laws of X"). Report the jurisdiction
+  name only: "South Africa", "Georgia", "Delaware". A clause merely
+  mentioning a place (filings, courts, addresses, regulators) does NOT
+  count. Otherwise null.
+- termination_fee_amount / termination_fee_currency: ONLY if this clause
+  states a termination or break fee. Escrow amounts, guarantees and other
+  figures are NOT termination fees. Currency as ISO code (USD, ZAR).
+  Otherwise null.
+- per_share_cash_amount / per_share_cash_currency: ONLY if this clause
+  states cash consideration per share. Otherwise null.
+- share_exchange_ratio: ONLY if this clause states a share-for-share
+  exchange or consideration ratio (shares received per target share).
+  Otherwise null.
+- longstop_date: ONLY if this clause states the longstop/outside date as a
   calendar date; format YYYY-MM-DD. Otherwise null.
 - Never infer a value from general knowledge or from other parts of the
   agreement. If the value is not written in this clause, return null.
@@ -73,7 +91,7 @@ CLAUSE:
 
 
 def evaluate(items: list[dict], model: str, sleep_s: float = 13.0) -> dict:
-    """sleep_s paces requests under the free-tier 5 RPM limit."""
+    """sleep_s paces requests under the free-tier RPM limit."""
     client = genai.Client(api_key=os.environ["GOOGLE_API_KEY"])
     rows = []
     for i, item in enumerate(items, 1):
@@ -103,6 +121,10 @@ def evaluate(items: list[dict], model: str, sleep_s: float = 13.0) -> dict:
     return score(rows)
 
 
+def _norm(v):
+    return v.strip().lower() if isinstance(v, str) else v
+
+
 def score(rows: list[dict]) -> dict:
     n = len(rows)
     type_correct = sum(r["pred"]["clause_type"] == r["gold"]["clause_type"] for r in rows)
@@ -114,9 +136,9 @@ def score(rows: list[dict]) -> dict:
         for f in EXTRACTION_FIELDS:
             gold, pred = r["gold"][f], r["pred"][f]
             field_total += 1
-            match = (gold == pred) or (
+            match = (_norm(gold) == _norm(pred)) or (
                 isinstance(gold, (int, float)) and isinstance(pred, (int, float))
-                and abs(float(gold) - float(pred)) < 0.005
+                and abs(float(gold) - float(pred)) < 0.00005
             )
             field_correct += match
             if gold is None:
@@ -142,10 +164,10 @@ def score(rows: list[dict]) -> dict:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", default=os.getenv("GEMINI_MODEL", "gemini-2.0-flash"))
+    ap.add_argument("--model", default=os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite"))
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--sleep", type=float, default=13.0,
-                    help="seconds between requests (free tier: 5 RPM)")
+                    help="seconds between requests (free tier RPM cap)")
     args = ap.parse_args()
 
     items = []

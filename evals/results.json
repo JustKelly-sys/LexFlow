@@ -1,300 +1,586 @@
 {
-  "items": 17,
-  "clause_type_accuracy": 0.9412,
+  "items": 25,
+  "clause_type_accuracy": 0.96,
   "field_accuracy": 1.0,
   "hallucination_rate": 0.0,
-  "null_fields_tested": 64,
+  "null_fields_tested": 166,
   "misses": [
-    "TYPE treasury_cancellation: expected consideration, got merger_mechanics"
+    "TYPE us_treasury_cancellation: expected consideration, got merger_mechanics"
   ],
   "rows": [
     {
-      "id": "effective_time",
+      "id": "us_effective_time",
       "gold": {
         "clause_type": "merger_mechanics",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       },
       "pred": {
         "clause_type": "merger_mechanics",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       }
     },
     {
-      "id": "merger_consideration",
+      "id": "us_merger_consideration",
       "gold": {
         "clause_type": "consideration",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": 10.1,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": 10.1,
+        "per_share_cash_currency": "USD",
+        "share_exchange_ratio": null,
+        "longstop_date": null
       },
       "pred": {
         "clause_type": "consideration",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": 10.1,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": 10.1,
+        "per_share_cash_currency": "USD",
+        "share_exchange_ratio": null,
+        "longstop_date": null
       }
     },
     {
-      "id": "treasury_cancellation",
+      "id": "us_treasury_cancellation",
       "gold": {
         "clause_type": "consideration",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       },
       "pred": {
         "clause_type": "merger_mechanics",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       }
     },
     {
-      "id": "paying_agent",
+      "id": "us_paying_agent",
       "gold": {
         "clause_type": "payment_mechanics",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       },
       "pred": {
         "clause_type": "payment_mechanics",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       }
     },
     {
-      "id": "appraisal_rights",
+      "id": "us_appraisal_rights",
       "gold": {
         "clause_type": "appraisal_rights",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       },
       "pred": {
         "clause_type": "appraisal_rights",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       }
     },
     {
-      "id": "option_treatment",
+      "id": "us_option_treatment",
       "gold": {
         "clause_type": "equity_award_treatment",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       },
       "pred": {
         "clause_type": "equity_award_treatment",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       }
     },
     {
-      "id": "conditions_mutual",
+      "id": "us_conditions_mutual",
       "gold": {
         "clause_type": "conditions_to_closing",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       },
       "pred": {
         "clause_type": "conditions_to_closing",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       }
     },
     {
-      "id": "outside_date_term",
+      "id": "us_outside_date_term",
       "gold": {
         "clause_type": "termination_rights",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": "2024-11-30"
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": "2024-11-30"
       },
       "pred": {
         "clause_type": "termination_rights",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": "2024-11-30"
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": "2024-11-30"
       }
     },
     {
-      "id": "company_term_fee",
+      "id": "us_company_term_fee",
       "gold": {
         "clause_type": "termination_fee",
-        "governing_law_state": null,
-        "termination_fee_usd": 12500000,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": 12500000,
+        "termination_fee_currency": "USD",
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       },
       "pred": {
         "clause_type": "termination_fee",
-        "governing_law_state": null,
-        "termination_fee_usd": 12500000.0,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": 12500000.0,
+        "termination_fee_currency": "USD",
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       }
     },
     {
-      "id": "amendment_waivers",
+      "id": "us_amendment_waivers",
       "gold": {
         "clause_type": "amendment_waiver",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       },
       "pred": {
         "clause_type": "amendment_waiver",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       }
     },
     {
-      "id": "nonsurvival_reps",
+      "id": "us_nonsurvival_reps",
       "gold": {
         "clause_type": "miscellaneous",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       },
       "pred": {
         "clause_type": "miscellaneous",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       }
     },
     {
-      "id": "notices",
+      "id": "us_notices",
       "gold": {
         "clause_type": "notices",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       },
       "pred": {
         "clause_type": "notices",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       }
     },
     {
-      "id": "counterparts",
+      "id": "us_counterparts",
       "gold": {
         "clause_type": "miscellaneous",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       },
       "pred": {
         "clause_type": "miscellaneous",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       }
     },
     {
-      "id": "severability",
+      "id": "us_severability",
       "gold": {
         "clause_type": "miscellaneous",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       },
       "pred": {
         "clause_type": "miscellaneous",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       }
     },
     {
-      "id": "governing_law",
+      "id": "us_governing_law",
       "gold": {
         "clause_type": "governing_law",
-        "governing_law_state": "Georgia",
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": "Georgia",
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       },
       "pred": {
         "clause_type": "governing_law",
-        "governing_law_state": "Georgia",
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": "Georgia",
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       }
     },
     {
-      "id": "specific_performance",
+      "id": "us_specific_performance",
       "gold": {
         "clause_type": "specific_performance",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       },
       "pred": {
         "clause_type": "specific_performance",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       }
     },
     {
-      "id": "mae_definition",
+      "id": "us_mae_definition",
       "gold": {
         "clause_type": "definitions",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       },
       "pred": {
         "clause_type": "definitions",
-        "governing_law_state": null,
-        "termination_fee_usd": null,
-        "per_share_consideration_usd": null,
-        "outside_date": null
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
+      }
+    },
+    {
+      "id": "sa_offer_structure",
+      "gold": {
+        "clause_type": "merger_mechanics",
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
+      },
+      "pred": {
+        "clause_type": "merger_mechanics",
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
+      }
+    },
+    {
+      "id": "sa_consideration_ratio",
+      "gold": {
+        "clause_type": "consideration",
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": 0.09196,
+        "longstop_date": null
+      },
+      "pred": {
+        "clause_type": "consideration",
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": 0.09196,
+        "longstop_date": null
+      }
+    },
+    {
+      "id": "sa_regulatory_conditions",
+      "gold": {
+        "clause_type": "conditions_to_closing",
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
+      },
+      "pred": {
+        "clause_type": "conditions_to_closing",
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
+      }
+    },
+    {
+      "id": "sa_mac_definition",
+      "gold": {
+        "clause_type": "definitions",
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
+      },
+      "pred": {
+        "clause_type": "definitions",
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
+      }
+    },
+    {
+      "id": "sa_longstop",
+      "gold": {
+        "clause_type": "conditions_to_closing",
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": "2025-09-30"
+      },
+      "pred": {
+        "clause_type": "conditions_to_closing",
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": "2025-09-30"
+      }
+    },
+    {
+      "id": "sa_breach",
+      "gold": {
+        "clause_type": "breach_and_remedies",
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
+      },
+      "pred": {
+        "clause_type": "breach_and_remedies",
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
+      }
+    },
+    {
+      "id": "sa_governing_law",
+      "gold": {
+        "clause_type": "governing_law",
+        "governing_law_jurisdiction": "South Africa",
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
+      },
+      "pred": {
+        "clause_type": "governing_law",
+        "governing_law_jurisdiction": "South Africa",
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
+      }
+    },
+    {
+      "id": "sa_confidentiality",
+      "gold": {
+        "clause_type": "confidentiality",
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
+      },
+      "pred": {
+        "clause_type": "confidentiality",
+        "governing_law_jurisdiction": null,
+        "termination_fee_amount": null,
+        "termination_fee_currency": null,
+        "per_share_cash_amount": null,
+        "per_share_cash_currency": null,
+        "share_exchange_ratio": null,
+        "longstop_date": null
       }
     }
   ],
