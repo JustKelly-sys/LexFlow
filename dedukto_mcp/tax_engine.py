@@ -24,13 +24,15 @@ class TaxResult:
 # SARS 2024/25 Tax Tables
 _ZA_BRACKETS = [
     # (lower_bound, upper_bound, base_tax, marginal_rate)
+    # Lower bound == previous upper bound so marginal tax is continuous at
+    # the boundaries (SARS formula: base + rate x amount above the bound).
     (0,          237_100,    0,        0.18),
-    (237_101,    370_500,    42_678,   0.26),
-    (370_501,    512_800,    77_362,   0.31),
-    (512_801,    673_000,    121_475,  0.36),
-    (673_001,    857_900,    179_147,  0.39),
-    (857_901,  1_817_000,    251_258,  0.41),
-    (1_817_001, float("inf"), 644_489, 0.45),
+    (237_100,    370_500,    42_678,   0.26),
+    (370_500,    512_800,    77_362,   0.31),
+    (512_800,    673_000,    121_475,  0.36),
+    (673_000,    857_900,    179_147,  0.39),
+    (857_900,  1_817_000,    251_258,  0.41),
+    (1_817_000, float("inf"), 644_489, 0.45),
 ]
 
 _ZA_PRIMARY_REBATE = 17_235.0     # 2024/25
