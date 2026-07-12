@@ -1,6 +1,6 @@
 # LexFlow: AI Billing Intelligence for Legal Professionals
 
-[![CI](https://github.com/JustKelly-sys/LexFlow/actions/workflows/ci.yml/badge.svg)](https://github.com/JustKelly-sys/LexFlow/actions/workflows/ci.yml)
+[![CI](https://github.com/TshepisoJafta/LexFlow/actions/workflows/ci.yml/badge.svg)](https://github.com/TshepisoJafta/LexFlow/actions/workflows/ci.yml)
 
 **Voice note in, reviewable billing entry out. Built for South African legal practice, with accuracy that is measured, not asserted.**
 
@@ -125,7 +125,7 @@ LexFlow/
 ## Getting Started
 
 ```bash
-git clone https://github.com/JustKelly-sys/LexFlow.git
+git clone https://github.com/TshepisoJafta/LexFlow.git
 cd LexFlow
 
 # Backend
@@ -203,4 +203,4 @@ All endpoints except the frontend, `/health` and the webhook require `Authorizat
 
 ## Author
 
-**Tshepiso Jafta** · [LinkedIn](https://www.linkedin.com/in/tshepisojafta/) · [GitHub](https://github.com/JustKelly-sys)
+**Tshepiso Jafta** · [LinkedIn](https://www.linkedin.com/in/tshepisojafta/) · [GitHub](https://github.com/TshepisoJafta)
