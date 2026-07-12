@@ -1,84 +1,77 @@
-﻿# LexFlow — AI Ops Suite for Legal Billing
+# LexFlow: AI Billing Intelligence for Legal Professionals
 
-**Voice-to-billing intelligence with RAG, LangGraph orchestration, and MCP tool integration.**
+[![CI](https://github.com/JustKelly-sys/LexFlow/actions/workflows/ci.yml/badge.svg)](https://github.com/JustKelly-sys/LexFlow/actions/workflows/ci.yml)
 
-**[Live Demo](https://lexflow-dwa0.onrender.com)** · **[Architecture Docs](docs/)**
+**Voice note in, reviewable billing entry out. Built for South African legal practice, with accuracy that is measured, not asserted.**
+
+**[Live Demo](https://lexflow-rho.vercel.app)** · **[Published Evals](evals/)** · **[Architecture Docs](docs/)**
+
+> **Recruiters:** click **"Try the demo"** on the login page, no signup required. The demo account seeds itself with sample data.
 
 ---
 
 ## What This Is
 
-LexFlow converts voice dictations into structured billing entries for South African legal professionals. Dictate via WhatsApp or the web app — LexFlow transcribes with Google Gemini, retrieves relevant billing policy via RAG, orchestrates extraction through a stateful LangGraph pipeline, and presents an editable review form for human verification before committing to your personal ledger.
+LexFlow converts voice dictations into structured billing entries for legal professionals. Dictate after a consultation, on the road, or over WhatsApp: LexFlow extracts client, matter, duration and billable amount with Google Gemini, scores its own confidence, and presents an editable review form for human verification before anything reaches the ledger. AI output is treated as a draft, never as a fact.
 
-> **Recruiters:** Click **"Try Demo"** on the login page — no signup required.
+## Measured Accuracy
+
+Extraction quality is benchmarked against a hand-labeled golden set of clauses from public deal documents, including a **South African scheme of arrangement under s114(1)(d) of the Companies Act 71 of 2008**. The benchmark's core metric is the hallucination rate: when a clause contains no value, does the model return null or invent one?
+
+| Metric (latest committed run) | Value |
+|---|---|
+| Clause-type accuracy | 96.0% |
+| Field-extraction accuracy | 100.0% |
+| Hallucination rate | 0.0% (0 of 166 null fields) |
+
+Methodology, golden sets and per-item results: [`evals/`](evals/). Reproducible end to end from public SEC filings.
 
 ---
 
-## Architecture — 5-Layer AI Stack
+## Architecture
 
 | Layer | What It Does | Technology |
 |---|---|---|
 | 1. **Input Capture** | Voice notes via web or WhatsApp | FastAPI + Meta Cloud API |
-| 2. **AI Processing** | Structured entity extraction | Google Gemini (`gemini-2.0-flash`) |
-| 3. **RAG Retrieval** | Ground outputs in billing policy | LanceDB + sentence-transformers |
+| 2. **AI Processing** | Structured entity extraction with confidence scoring | Google Gemini, Pydantic structured output |
+| 3. **RAG Retrieval** | Ground outputs in billing policy | LanceDB + Gemini embeddings (`gemini-embedding-001`) |
 | 4. **Orchestration** | Stateful workflow with confidence routing | LangGraph (`BillingState` graph) |
-| 5. **System Integration** | Expose payroll engine as callable tools | Dedukto MCP Server (FastMCP) |
+| 5. **System Integration** | Payroll engine exposed as callable tools | Dedukto MCP Server (FastMCP) |
 
 ```
-voice note → [classify: billable?] → [RAG: retrieve policy chunks]
-           → [Gemini: extract entries + confidence]
-           → confidence >= 0.7 → log_result ✅
-           → confidence <  0.7 → human_review ⚠️ (flagged in WhatsApp)
+voice note -> [classify: billable?] -> [RAG: retrieve policy chunks]
+           -> [Gemini: extract entries + confidence]
+           -> confidence >= 0.7 -> log_result
+           -> confidence <  0.7 -> human_review (flagged for HITL)
 ```
+
+The RAG and LangGraph layers are optional by design: every import degrades gracefully to a direct Gemini extraction path, so the app runs identically on hosts that cannot carry the heavy dependencies. The production deployment on Vercel runs the direct path; the full pipeline runs anywhere the complete `requirements.txt` installs (Docker, Render, a VM) and is covered by the test suite either way.
 
 ---
 
 ## How It Works
 
 ### Web App
-1. **Sign Up** — Create an account with your email and set your custom hourly rate (ZAR)
-2. **Dictate or Upload** — Record a voice note in-browser or upload an audio file
-3. **Review & Approve** — Extracted billing data appears in an editable form for human verification
-4. **Ledger Entry** — Approved records are saved to your personal billing ledger
+1. **Sign up**, set your hourly rate (ZAR)
+2. **Dictate or upload**: record in-browser (with live waveform) or upload audio
+3. **Review and approve**: extracted data appears in an editable form; low-confidence extractions are flagged
+4. **Ledger**: approved records land in your personal billing ledger, exportable to CSV and PDF invoice
 
 ### WhatsApp
-1. **Send a message** — Text or voice note to the LexFlow WhatsApp number
-2. **Set your rate** — Reply with your hourly billing rate on first use
-3. **Send a voice note** — Describe your billable work naturally
-4. **Approve or reject** — Reply YES, NO, or EDIT to the extracted entry
-5. **Link your account** — Type LINK to connect WhatsApp to your web dashboard
+1. Send a voice note to the LexFlow WhatsApp number
+2. Set your hourly rate on first use
+3. Reply **YES** to save, **NO** to discard, **EDIT** to modify on web
+4. Type **LINK** to connect WhatsApp to your web dashboard (entries made before linking are claimed retroactively)
 
 ---
 
-## Features
+## Security & Compliance
 
-### Core Pipeline
-- **Voice Dictation** — Record directly from the browser with real-time waveform visualization
-- **Audio Upload** — Supports MP3, WAV, M4A, WebM, FLAC, AAC, OGG (25MB max)
-- **Gemini Extraction** — Structured entity extraction with Pydantic validation
-- **RAG Policy Grounding** — Billing outputs are grounded against ingested policy documents via LanceDB
-- **LangGraph Orchestration** — 7-node stateful graph with conditional confidence routing
-- **Dedukto MCP Integration** — Payroll-related matters auto-enrich with PAYE/UIF/SDL breakdown
-
-### WhatsApp Integration
-- **Voice Notes** — Send voice note → Gemini extracts billing data automatically
-- **Conversational Approval** — Reply YES to save, NO to discard, EDIT to modify on web
-- **Account Linking** — Type LINK to connect WhatsApp to your web dashboard
-- **State Machine** — Clean conversation flow (NEW → AWAITING_RATE → READY → AWAITING_APPROVAL)
-- **POPIA Compliance** — Voice notes downloaded, processed, and immediately deleted
-
-### Human-in-the-Loop (HITL)
-- **Editable Review Form** — Verify and correct all fields before saving
-- **Confidence Scoring** — Visual confidence bar; low-confidence entries flagged for review
-- **Batch Approval** — Approve all entries at once with failure tracking
-
-### Authentication & Security
-- **Supabase Auth** — Email + password with JWT session management
-- **Row Level Security** — Users only see their own billing data
-- **HMAC Webhook Verification** — Meta payload verified with constant-time comparison
-- **Upload Size Guard** — 25MB hard limit before file read
-- **Input Validation** — All billing fields validated for length (2000 char max) and content
-- **POPIA Compliance** — Audio files scrubbed from Gemini immediately after extraction
+- **Supabase Auth** (JWT) with **Row Level Security**: users only ever see their own data
+- **POPIA-conscious audio handling**: voice notes are processed and immediately deleted, from disk and from Gemini
+- **Webhook signature verification** (HMAC-SHA256, constant-time comparison) that **fails closed in production**
+- **Streaming upload cap** (25MB) enforced during the read, not just via Content-Length
+- Input validation on every billing field; service-role database access confined to explicitly separate helpers
 
 ---
 
@@ -87,15 +80,14 @@ voice note → [classify: billable?] → [RAG: retrieve policy chunks]
 | Layer | Technology |
 |---|---|
 | **Frontend** | React 19, Vite, TypeScript, Tailwind CSS v4, Sonner, jsPDF |
-| **Backend** | Python, FastAPI, Uvicorn, httpx |
-| **AI** | Google Gemini API (`gemini-2.0-flash`), Pydantic structured output |
-| **RAG** | LanceDB, sentence-transformers (`all-MiniLM-L6-v2`) |
-| **Orchestration** | LangGraph (`langgraph>=1.1.6`), `langchain-google-genai` |
+| **Backend** | Python 3.12, FastAPI, Uvicorn, httpx |
+| **AI** | Google Gemini API (`gemini-3.1-flash-lite` default), Pydantic structured output |
+| **RAG** | LanceDB, Gemini embeddings (`gemini-embedding-001`) |
+| **Orchestration** | LangGraph, `langchain-google-genai` |
 | **MCP** | Dedukto MCP Server (`mcp>=1.0`, FastMCP pattern) |
-| **Database** | Supabase (PostgreSQL + Row Level Security) |
-| **Auth** | Supabase Auth (email + password, JWT) |
+| **Database / Auth** | Supabase (PostgreSQL, RLS, JWT auth) |
 | **Messaging** | Meta Cloud API (WhatsApp Business) |
-| **Deployment** | Render (auto-deploy from GitHub) |
+| **CI / Deployment** | GitHub Actions · Vercel (services: FastAPI + Vite) · Dockerfile for container hosts |
 
 ---
 
@@ -103,37 +95,29 @@ voice note → [classify: billable?] → [RAG: retrieve policy chunks]
 
 ```
 LexFlow/
-  main.py                     # FastAPI backend + Gemini + Supabase + WhatsApp
-  config.py                   # Environment configuration (single source of truth)
-  auth.py                     # JWT validation dependency
-  requirements.txt            # Python dependencies
-  render.yaml                 # Render deployment config
-
+  main.py                # App assembly: CORS, routers, health, static serving
+  config.py              # Environment configuration (single source of truth)
+  auth.py                # JWT validation dependency
+  routers/
+    billing.py           # /transcribe, billing CRUD, CSV export, demo seeder
+    profile.py           # Profile read/update
+    whatsapp.py          # Meta webhook, account linking
   services/
-    billing_graph.py           # LangGraph 7-node billing pipeline
-    vector_store.py            # LanceDB RAG layer
-    supabase.py                # Supabase REST helpers
-
-  dedukto_mcp/
-    server.py                  # FastMCP server — 3 payroll tools
-    tax_engine.py              # SARS 2024/25 PAYE/UIF/SDL pure functions
-    README.md                  # Dedukto quick-start
-
-  tests/
-    test_lexflow.py            # 26 tests: schemas, CRUD, CORS, validation
-    test_billing_graph.py      # 9 tests: LangGraph nodes, routing, PAYE enrichment
-    test_tax_engine.py         # 13 tests: bracket logic, rebates, input guards
-    test_mcp_server.py         # 8 tests: tool registration, API structure
-    test_vector_store.py       # 7 tests: ingest, retrieve, prompt building
-
-  docs/
-    LANGGRAPH_ARCHITECTURE.md  # Graph flow, cost model, state schema
-    MCP_SERVER.md              # 5-layer architecture writeup
-
-  frontend/                    # React 19 + Vite SPA
-    src/
-      pages/                   # Dashboard, Dictation, Review, Ledger, etc.
-      components/lexflow/      # AuthPage, Navbar, BillingLedger, Waveform, etc.
+    gemini.py            # Extraction schemas, prompt builder, retry logic
+    billing_graph.py     # LangGraph 7-node billing pipeline
+    vector_store.py      # LanceDB RAG layer
+    whatsapp.py          # WhatsApp state machine and messaging
+    supabase.py          # REST helpers (user-scoped vs service-role)
+  evals/
+    run_evals.py         # Extraction benchmark runner
+    golden/              # Hand-labeled golden sets (SA + US deal documents)
+    results.json         # Latest committed run
+  dedukto_mcp/           # FastMCP server: SARS PAYE/UIF/SDL tools
+  tests/                 # 65 tests across API, graph, RAG, MCP, tax engine
+  migrations/            # SQL run in the Supabase SQL editor
+  frontend/              # React 19 + Vite SPA
+  Dockerfile             # Container build (frontend build + Python runtime)
+  vercel.json            # Vercel services config (FastAPI + Vite)
 ```
 
 ---
@@ -145,66 +129,55 @@ git clone https://github.com/JustKelly-sys/LexFlow.git
 cd LexFlow
 
 # Backend
-python -m venv venv
-venv\Scripts\activate          # Windows
+python -m venv .venv
+.venv\Scripts\activate            # Windows (source .venv/bin/activate on Unix)
 pip install -r requirements.txt
 
 # Frontend
-cd frontend && npm install && npm run build && cd ..
+cd frontend && npm ci && npm run build && cd ..
 
-# Environment (.env)
-GOOGLE_API_KEY=your_gemini_api_key
-SUPABASE_URL=your_supabase_project_url
-SUPABASE_SERVICE_KEY=your_supabase_service_role_key
-WHATSAPP_TOKEN=your_meta_cloud_api_token
-WHATSAPP_PHONE_ID=your_whatsapp_phone_number_id
-WEBHOOK_VERIFY_TOKEN=your_custom_webhook_token
-WHATSAPP_APP_SECRET=your_meta_app_secret
+# Configure
+cp .env.example .env               # then fill in your keys
 
 # Run
-python -m uvicorn main:app --host 0.0.0.0 --port 8000
+python -m uvicorn main:app --port 8000
 ```
 
-### MCP Server (standalone)
+See [`.env.example`](.env.example) for the full variable list (Supabase, Gemini, WhatsApp, `APP_URL`/`APP_ENV`).
+
+### Tests
+
+```bash
+python -m pytest tests/ -v         # 65 tests
+```
+
+### Evals
+
+```bash
+GOOGLE_API_KEY=... python evals/run_evals.py
+```
+
+### MCP server (standalone)
+
 ```bash
 python -m dedukto_mcp.server
 ```
 
 ---
 
-## Testing
-
-```bash
-# Run full suite (65 tests)
-python -m pytest tests/ -v
-
-# Individual modules
-python -m pytest tests/test_lexflow.py -v        # Core API (26 tests)
-python -m pytest tests/test_billing_graph.py -v   # LangGraph pipeline (9 tests)
-python -m pytest tests/test_tax_engine.py -v      # Tax engine (13 tests)
-python -m pytest tests/test_mcp_server.py -v      # MCP tools (8 tests)
-python -m pytest tests/test_vector_store.py -v    # RAG layer (7 tests)
-```
-
----
-
 ## API Endpoints
 
-All endpoints except frontend and webhook require `Authorization: Bearer <token>`.
+All endpoints except the frontend, `/health` and the webhook require `Authorization: Bearer <token>`.
 
 | Method | Endpoint | Description |
 |---|---|---|
-| GET | `/` | React SPA (dashboard) |
-| POST | `/transcribe` | Extract billing data from audio (25MB max) |
-| POST | `/billing` | Save a user-approved billing entry |
-| GET | `/billing` | Get authenticated user's billing entries |
-| GET | `/billing/csv` | Download billing data as CSV |
-| DELETE | `/billing/{id}` | Delete a billing entry (ownership verified) |
-| PATCH | `/billing/{id}` | Update a billing entry (ownership verified) |
-| GET | `/profile` | Get user profile |
-| PATCH | `/profile` | Update profile (name, firm, rate) |
-| GET | `/webhook` | Meta webhook verification |
-| POST | `/webhook` | Receive WhatsApp messages (HMAC-verified) |
+| GET | `/health` | Liveness probe |
+| POST | `/transcribe` | Extract billing data from audio |
+| POST / GET | `/billing` | Save / list billing entries |
+| GET | `/billing/csv` | Export as CSV |
+| PATCH / DELETE | `/billing/{id}` | Update / delete an entry (ownership verified) |
+| GET / PATCH | `/profile` | Read / update profile |
+| GET / POST | `/webhook` | Meta verification / WhatsApp intake (HMAC-verified) |
 | POST | `/whatsapp/link` | Link WhatsApp number to web account |
 
 ---
@@ -213,21 +186,21 @@ All endpoints except frontend and webhook require `Authorization: Bearer <token>
 
 | Decision | Rationale |
 |---|---|
-| **LangGraph over raw if/else** | Stateful graph = auditable, extensible, each node independently testable |
-| **RAG over hardcoded prompts** | Policy documents change; semantic retrieval adapts without code changes |
-| **MCP over direct imports** | Any AI agent can call `calculate_paye()` without embedding tax logic |
-| **FastAPI over Django** | Async-first — handles Gemini API latency without blocking |
+| **Published evals over accuracy claims** | "Engineered so the model cannot invent details" is a claim; a golden set with a hallucination metric is evidence |
+| **HITL over auto-save** | Legal billing demands accuracy; AI extraction is a draft, not a fact |
+| **Confidence routing** | Entries below 0.7 confidence route to human review |
+| **Graceful degradation** | RAG/LangGraph are optional imports; the core product runs on any free-tier host |
+| **LangGraph over raw if/else** | Stateful graph: auditable, extensible, each node independently testable |
+| **MCP over direct imports** | Any AI agent can call the payroll tools without embedding tax logic |
 | **Supabase over Firebase** | Postgres + Row Level Security + built-in auth REST API |
-| **HITL over auto-save** | Legal billing demands accuracy — AI extraction is a draft, not a fact |
-| **WhatsApp over custom app** | Legal professionals already use WhatsApp daily; zero adoption friction |
-| **Confidence routing** | Entries below 0.7 confidence → human review; above → auto-approve path |
+| **WhatsApp over a custom app** | Legal professionals already live in WhatsApp; zero adoption friction |
 
 ---
 
 ## License
 
-MIT
+[MIT](LICENSE)
 
 ## Author
 
-**Tshepiso Jafta** — [LinkedIn](https://www.linkedin.com/in/tshepisojafta/)
+**Tshepiso Jafta** · [LinkedIn](https://www.linkedin.com/in/tshepisojafta/) · [GitHub](https://github.com/JustKelly-sys)
