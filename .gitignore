@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Environment — never commit real keys
+.env
+.env.local
+.env.*.local
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/tsconfig.app.tsbuildinfo
+frontend/out.txt
+
+# Local data
+lance_db/
+*.log
+billing.csv
+
+# Test audio scratch files
+test_audio.*
+*.wav
+*.mp3
+*.m4a
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
